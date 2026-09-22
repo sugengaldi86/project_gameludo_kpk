@@ -614,3 +614,89 @@ body :where(button, [role="button"]) { font-weight: 600; }
 .setup-exam-message.error { color: #a52835; background: #fff1f2; }.setup-exam-message button { border: 0; color: inherit; background: transparent; font-weight: 700; cursor: pointer; }
 .spinning { animation: setup-spin .8s linear infinite; }
 @keyframes setup-spin { to { transform: rotate(360deg); } }
+
+/* Mobile layout guardrails: keep the setup flow single-column and touch friendly. */
+@media (max-width: 800px) {
+  .setup-container {
+    display: block;
+    min-height: 100dvh;
+    padding: 12px;
+  }
+
+  .setup-card {
+    width: 100%;
+    max-width: none;
+  }
+
+  .setup-header {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 24px 20px 22px;
+  }
+
+  .setup-header h1 {
+    font-size: clamp(21px, 6vw, 25px);
+    line-height: 1.2;
+  }
+
+  .setup-subtitle {
+    max-width: none;
+    font-size: 14px;
+  }
+
+  .setup-content {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .setup-form,
+  .setup-guide {
+    min-width: 0;
+    padding: 22px 20px;
+  }
+
+  .setup-guide {
+    border-top: 1px solid var(--ui-line);
+    border-left: 0;
+  }
+
+  .names-grid,
+  .player-count-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .player-count-buttons {
+    display: grid;
+  }
+
+  .count-btn,
+  .start-game-btn,
+  .setup-input {
+    min-height: 46px;
+  }
+}
+
+@media (max-width: 480px) {
+  .setup-container { padding: 0; }
+  .setup-card { border: 0; border-radius: 0; }
+  .setup-header { padding: 22px 16px 20px; }
+  .setup-form,
+  .setup-guide { padding-right: 16px; padding-left: 16px; }
+  .setup-exam-label { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .setup-exam-label button { padding-left: 0; }
+}
+
+@media (max-width: 720px) {
+  .game-layout { width: 100%; min-width: 0; }
+  .board-section,
+  .left-panel,
+  .right-panel,
+  .board-stage,
+  .panel-card { min-width: 0; }
+  .board-heading h1 { min-width: 0; overflow-wrap: anywhere; }
+  .streak-badge { flex: 0 0 auto; }
+  .dice-control { width: 100%; max-width: none; }
+  .question-overlay { padding: 12px; }
+  .question-modal { max-height: calc(100dvh - 24px); overflow-y: auto; padding: 20px 16px; }
+  .answer-review { padding: 16px; }
+}

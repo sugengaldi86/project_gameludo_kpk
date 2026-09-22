@@ -385,6 +385,29 @@
 .exam-countdown.critical small { color: #dc2626; }
 @keyframes critical-pulse { from { background: #fee2e2; } to { background: #fca5a5; } }
 
+/* Final mobile safeguards for every admin page. */
+@media (max-width: 640px) {
+  .admin-content { width: 100%; min-width: 0; }
+  .admin-page-heading h1 { overflow-wrap: anywhere; }
+  .admin-panel,
+  .admin-form-section,
+  .admin-metric,
+  .admin-report-summary article { min-width: 0; }
+  .admin-dashboard-grid,
+  .admin-metric-grid,
+  .admin-report-summary,
+  .student-detail-grid { min-width: 0; }
+  .admin-toolbar { align-items: stretch; }
+  .admin-toolbar > *,
+  .admin-toolbar .admin-search { min-width: 0; width: 100%; }
+  .admin-primary-button,
+  .admin-secondary-button,
+  .admin-danger-button { min-height: 44px; }
+  .admin-table-wrap { -webkit-overflow-scrolling: touch; }
+  .admin-pagination { align-items: stretch; }
+  .admin-pagination > div { flex-wrap: wrap; }
+}
+
 .exam-monitor-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; }
 .exam-monitor-stats div { display: flex; flex-direction: column; gap: 4px; }
 .exam-monitor-stats svg { color: #64748b; margin-bottom: 2px; }

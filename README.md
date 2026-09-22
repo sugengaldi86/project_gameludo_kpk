@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ludo KPK
 
-## Getting Started
+Game Ludo edukasi KPK berbasis Next.js 16, Supabase, dan Firebase Authentication. Permainan lokal mendukung 2–4 pemain, bank soal dinamis, penyimpanan state game, serta dashboard laporan admin.
 
-First, run the development server:
+## Menjalankan aplikasi
+
+1. Salin `.env.local.example` menjadi `.env.local` dan isi kredensial Supabase serta Firebase.
+2. Jalankan `supabase/schema.sql` pada project Supabase baru.
+3. Jalankan semua file di `supabase/migrations` berdasarkan urutan nama file.
+4. Ikuti `ADMIN_SETUP.md` untuk membuat akun admin.
+5. Instal dependency dan jalankan aplikasi:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Game tersedia di `http://localhost:3000` dan dashboard di `http://localhost:3000/admin`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Aturan game
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Pion hanya keluar dari base dengan angka 6.
+- Jawaban KPK yang benar diperlukan sebelum pion dapat bergerak.
+- Angka 6 memberi satu giliran tambahan setelah pion bergerak.
+- Pion lawan pada jalur utama ditangkap dan dikembalikan ke base, kecuali pada safe zone.
+- Pion harus mencapai kotak akhir dengan angka yang tepat.
+- Pemain pertama yang menyelesaikan semua pionnya menjadi pemenang.
+- Pilihan jawaban hanya dapat dikirim satu kali. Pembahasan tetap ditampilkan sebelum pemain melanjutkan.
+- Keluar game memerlukan konfirmasi, mengakhiri room tanpa pemenang, dan mempertahankan riwayat belajar.
 
-## Learn More
+## Pemeriksaan kualitas
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Jangan pernah memasukkan `.env.local`, Firebase private key, atau Supabase service-role key ke repository.

@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   const supabase = supabaseServer()
   if (body.entity === 'content') {
     if (!['objective','material'].includes(body.content_type) || !String(body.title || '').trim() || !String(body.body || '').trim()) return NextResponse.json({ error: 'Jenis, judul, dan isi wajib diisi' }, { status: 400 })
-    const payload = { content_type: body.content_type, title: String(body.title).trim(), body: String(body.body).trim(), image_url: body.image_url ? String(body.image_url).trim() : null, display_order: Number(body.display_order) || 0, show_in_briefing: body.content_type === 'material' && body.show_in_briefing !== false, is_active: body.is_active !== false, updated_at: new Date().toISOString() }
+    const payload = { content_type: body.content_type, title: String(body.title).trim(), body: String(body.body).trim(), image_url: body.image_url ? String(body.image_url).trim() : null, display_order: Number(body.display_order) || 0, is_active: body.is_active !== false, updated_at: new Date().toISOString() }
     const result = body.id ? await supabase.from('learning_contents').update(payload).eq('id', body.id).select().single() : await supabase.from('learning_contents').insert(payload).select().single()
     if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 })
     return NextResponse.json({ data: result.data }, { status: body.id ? 200 : 201 })

@@ -42,11 +42,12 @@ exception when duplicate_object then null; end $$;
 update public.questions
 set difficulty = case
   when difficulty = 'kontekstual' then 'sedang'
-  when difficulty = 'tiga_bilangan' then 'hots'
+  -- tiga_bilangan dipertahankan: constraint DB tidak mengizinkan nilai 'hots'
   else difficulty
 end,
 operand_count = case when number_c is null then 2 else 3 end,
 context_type = 'kontekstual';
+
 
 -- Empat tujuan pembelajaran sesuai bahan ajar dan target ketercapaian 75%.
 update public.learning_contents set is_active=false where content_type='objective';

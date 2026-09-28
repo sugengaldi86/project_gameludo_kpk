@@ -21,7 +21,7 @@ export async function GET() {
   // answer_plan ditambahkan pada migrasi Polya. Tetap izinkan bank soal lama
   // dibuka sambil menunggu migrasi tersebut diterapkan ke database.
   if (missingColumn(essayResult.error, 'answer_plan')) {
-    const legacyResult = await supabase.from('questions').select('id,question_code,story,answer_know,answer_asked,strategy,answer_solution,answer_check,score_weight,display_order,is_active,difficulty').eq('question_type', 'essay').order('display_order')
+    const legacyResult = await supabase.from('questions').select('id,question_code,story,answer_know,answer_asked,strategy,answer_solution,answer_check,score_weight,display_order,is_active,difficulty,operand_count,context_type').eq('question_type', 'essay').order('display_order')
     essayError = legacyResult.error
     essayData = legacyResult.data?.map(item => ({ ...item, answer_plan: item.strategy || '' })) || null
   }
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   }
   if (body.entity === 'essay') {
     if (!String(body.question_code || '').trim() || !String(body.story || '').trim()) return NextResponse.json({ error: 'Kode dan teks soal wajib diisi' }, { status: 400 })
-    const payload = { question_code: String(body.question_code).trim().toUpperCase(), story: String(body.story).trim(), question_type: 'essay', difficulty: ['mudah','sedang','hots'].includes(body.difficulty) ? body.difficulty : 'sedang', topic: 'kpk', known_information: body.answer_know || '', asked_information: body.answer_asked || '', strategy: body.answer_plan || 'KPK', number_a: 1, number_b: 1, operand_count: Math.min(3, Math.max(2, Number(body.operand_count) || 2)), context_type: 'kontekstual', correct_value: 1, correct_option: 'A', final_explanation: body.answer_check || '', answer_know: body.answer_know || '', answer_asked: body.answer_asked || '', answer_plan: body.answer_plan || '', answer_solution: body.answer_solution || '', answer_check: body.answer_check || '', score_weight: 10, display_order: Number(body.display_order) || 0, is_active: body.is_active !== false }
+    const payload = { question_code: String(body.question_code).trim().toUpperCase(), story: String(body.story).trim(), question_type: 'essay', difficulty: ['mudah','sedang','tiga_bilangan'].includes(body.difficulty) ? body.difficulty : 'sedang', topic: 'kpk', known_information: body.answer_know || '', asked_information: body.answer_asked || '', strategy: body.answer_plan || 'KPK', number_a: 1, number_b: 1, operand_count: Math.min(3, Math.max(2, Number(body.operand_count) || 2)), context_type: 'kontekstual', correct_value: 1, correct_option: 'A', final_explanation: body.answer_check || '', answer_know: body.answer_know || '', answer_asked: body.answer_asked || '', answer_plan: body.answer_plan || '', answer_solution: body.answer_solution || '', answer_check: body.answer_check || '', score_weight: 10, display_order: Number(body.display_order) || 0, is_active: body.is_active !== false }
     let result = body.id ? await supabase.from('questions').update(payload).eq('id', body.id).select().single() : await supabase.from('questions').insert(payload).select().single()
     if (missingColumn(result.error, 'answer_plan')) {
       const { answer_plan: _answerPlan, ...legacyPayload } = payload

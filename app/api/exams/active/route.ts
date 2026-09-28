@@ -4,7 +4,7 @@ export async function GET() {
   const nowDate = new Date()
   const now = nowDate.toISOString()
   const { data, error } = await supabaseServer().from('exams')
-    .select('id,name,learning_goal,starts_at,ends_at,duration_minutes,question_time_seconds,status')
+    .select('id,name,learning_goal,starts_at,ends_at,duration_minutes,question_time_seconds,essay_question_count,multiple_choice_question_count,status')
     .in('status', ['scheduled','active']).gt('ends_at', now).order('starts_at')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const exams = (data || []).map(exam => {

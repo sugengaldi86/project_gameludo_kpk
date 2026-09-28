@@ -60,6 +60,13 @@ export function validateQuestionInput(value: unknown):
   if (!QUESTION_DIFFICULTIES.includes(input.difficulty as never)) {
     return { success: false, error: 'Tingkat kesulitan tidak valid' }
   }
+  const operandCount = Number(input.operand_count || (numberC ? 3 : 2))
+  if (![2, 3].includes(operandCount) || (operandCount === 3 && numberC === null)) {
+    return { success: false, error: 'Soal tiga bilangan wajib mempunyai Bilangan C' }
+  }
+  if (!['kontekstual', 'langsung'].includes(String(input.context_type || 'kontekstual'))) {
+    return { success: false, error: 'Jenis konteks soal tidak valid' }
+  }
 
   const options = Array.isArray(input.question_options) ? input.question_options : []
   if (options.length !== 4) {
@@ -86,9 +93,12 @@ export function validateQuestionInput(value: unknown):
   if (input.correct_option !== correctOption) {
     return { success: false, error: 'Penanda pilihan benar tidak konsisten' }
   }
-  const numericAnswer = Number(String(correctOptions[0].option_text).replace(',', '.').match(/-?\d+(?:\.\d+)?/)?.[0])
-  if (!Number.isFinite(numericAnswer) || numericAnswer !== expectedLcm) {
+  const optionNumbers = String(correctOptions[0].option_text).match(/\d+/g)?.map(Number) || []
+  if (!optionNumbers.includes(expectedLcm)) {
     return { success: false, error: `Teks pilihan yang ditandai benar harus memuat nilai KPK ${expectedLcm}` }
+  }
+  if (!finalExplanation.includes(String(expectedLcm))) {
+    return { success: false, error: `Pembahasan akhir harus memuat hasil KPK ${expectedLcm}` }
   }
 
   const solutions = Array.isArray(input.question_solutions) ? input.question_solutions : []
@@ -113,6 +123,8 @@ export function validateQuestionInput(value: unknown):
       number_a: numberA,
       number_b: numberB,
       number_c: numberC,
+      operand_count: operandCount as 2 | 3,
+      context_type: (input.context_type || 'kontekstual') as 'kontekstual' | 'langsung',
       correct_value: expectedLcm,
       correct_option: correctOption,
       final_explanation: finalExplanation,

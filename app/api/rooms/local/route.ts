@@ -11,9 +11,15 @@ export async function POST(request: Request) {
     }
     const normalizedPlayers = players.map((player: unknown) => {
       const value = player as Record<string, unknown>
+      const attendanceNumber = String(value.studentCode || '').trim()
+      const name = String(value.name || '').trim()
+      const identityScope = typeof examId === 'string' && examId
+        ? `EX-${examId.slice(0, 8)}`
+        : `LAT-${name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'PESERTA'}`
       return {
-        studentCode: String(value.studentCode || '').trim().toUpperCase(),
-        name: String(value.name || '').trim(),
+        attendanceNumber,
+        studentCode: `${identityScope}-${attendanceNumber}`,
+        name,
         avatar: String(value.avatar || '').slice(0, 1),
         color: String(value.color || ''),
       }
@@ -21,11 +27,11 @@ export async function POST(request: Request) {
     if (new Set(normalizedPlayers.map((player: { color: string }) => player.color)).size !== normalizedPlayers.length) {
       return NextResponse.json({ error: 'Setiap pemain harus memiliki warna berbeda' }, { status: 400 })
     }
-    if (normalizedPlayers.some((player) => !/^[A-Z0-9_-]{3,30}$/.test(player.studentCode))) {
-      return NextResponse.json({ error: 'Kode siswa wajib diisi dan harus terdiri dari 3-30 karakter' }, { status: 400 })
+    if (normalizedPlayers.some((player) => !/^(0[1-9]|[1-9][0-9])$/.test(player.attendanceNumber))) {
+      return NextResponse.json({ error: 'Nomor absen wajib terdiri dari 2 angka, mulai 01 sampai 99' }, { status: 400 })
     }
-    if (new Set(normalizedPlayers.map((player) => player.studentCode)).size !== normalizedPlayers.length) {
-      return NextResponse.json({ error: 'Kode siswa harus berbeda untuk setiap pemain' }, { status: 400 })
+    if (new Set(normalizedPlayers.map((player) => player.attendanceNumber)).size !== normalizedPlayers.length) {
+      return NextResponse.json({ error: 'Nomor absen harus berbeda dalam satu permainan' }, { status: 400 })
     }
 
     const supabase = supabaseServer()
@@ -55,6 +61,10 @@ export async function POST(request: Request) {
       accessToken: string
       players: unknown[]
     }
+    const createdPlayers = result.players as Array<{ id?: string; studentCode?: string }>
+    await Promise.all(createdPlayers.map((player, index) => player.id
+      ? supabase.from('profiles').update({ attendance_number: normalizedPlayers[index]?.attendanceNumber || null }).eq('id', player.id)
+      : Promise.resolve()))
     const response = NextResponse.json({
       success: true,
       roomCode: result.roomCode,

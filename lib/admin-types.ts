@@ -1,8 +1,7 @@
 export const QUESTION_DIFFICULTIES = [
   'mudah',
   'sedang',
-  'kontekstual',
-  'tiga_bilangan',
+  'hots',
 ] as const
 
 export type QuestionDifficulty = (typeof QUESTION_DIFFICULTIES)[number]
@@ -34,6 +33,8 @@ export type AdminQuestion = {
   number_a: number
   number_b: number
   number_c: number | null
+  operand_count: 2 | 3
+  context_type: 'kontekstual' | 'langsung'
   correct_value: number
   correct_option: OptionKey
   final_explanation: string
@@ -76,6 +77,14 @@ export type AdminExam = {
   duration_minutes: number
   question_time_seconds: number | null
   question_count: number | null
+  essay_question_count: number
+  multiple_choice_question_count: number
+  feedback_timing: 'immediate' | 'end'
+  show_provisional_ranking: boolean
+  passing_score: number
+  essay_weight: number
+  multiple_choice_weight: number
+  participant_mode: 'group' | 'individual'
   difficulty: string | null
   randomize_questions: boolean
   randomize_options: boolean

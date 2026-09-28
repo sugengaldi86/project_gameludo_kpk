@@ -10,8 +10,11 @@ const STATUS_LABEL: Record<string, string> = {
 
 const blank = {
   name: '', learning_goal: '', starts_at: '', ends_at: '',
-  duration_minutes: 45, question_time_seconds: 90 as number | null,
+  duration_minutes: 40, question_time_seconds: 90 as number | null,
   question_count: 20 as number | null, difficulty: '' as string | null,
+  essay_question_count: 5, multiple_choice_question_count: 10,
+  feedback_timing: 'end', show_provisional_ranking: true, passing_score: 75,
+  essay_weight: 50, multiple_choice_weight: 50, participant_mode: 'group',
   randomize_questions: true, randomize_options: false,
   late_tolerance_minutes: 10, auto_submit: true,
   allow_resume: true, allow_rejoin: true, max_attempts: 1, status: 'draft',
@@ -44,7 +47,7 @@ function formatCountdown(endsAt: string) {
 
 type ExamWithRooms = AdminExam & { rooms?: { id: string; status: string }[], selected_questions?: string[] }
 
-type CompactQuestion = { id: string; question_code: string; story: string; difficulty: string; is_active: boolean }
+type CompactQuestion = { id: string; question_code: string; story: string; difficulty: string; question_type?:string; is_active: boolean }
 
 export function ExamManager() {
   const [exams, setExams] = useState<ExamWithRooms[]>([])
@@ -62,6 +65,7 @@ export function ExamManager() {
   const [allQuestions, setAllQuestions] = useState<CompactQuestion[]>([])
   const [qSearch, setQSearch] = useState('')
   const [loadingQuestions, setLoadingQuestions] = useState(false)
+  const [nowMs, setNowMs] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const load = async () => {
@@ -74,6 +78,7 @@ export function ExamManager() {
   // Tick countdown setiap detik untuk ujian aktif/terjadwal
   useEffect(() => {
     timerRef.current = setInterval(() => {
+      setNowMs(Date.now())
       setCountdown(prev => {
         const next: Record<string, string> = {}
         exams.forEach(e => {
@@ -87,30 +92,39 @@ export function ExamManager() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [exams])
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   // Fetch jumlah soal aktif berdasarkan tingkat kesulitan yang dipilih
   useEffect(() => {
     if (!formOpen) return
     const difficulty = form.difficulty as string | null
-    setLoadingCount(true)
-    const params = new URLSearchParams({ pageSize: '1', status: 'active' })
-    if (difficulty) params.set('difficulty', difficulty)
-    fetch(`/api/admin/questions?${params}`)
-      .then(r => r.json())
-      .then(j => setQuestionCount(j.pagination?.total ?? null))
-      .catch(() => setQuestionCount(null))
-      .finally(() => setLoadingCount(false))
+    const timer = window.setTimeout(() => {
+      setLoadingCount(true)
+      const params = new URLSearchParams({ pageSize: '1', status: 'active' })
+      if (difficulty) params.set('difficulty', difficulty)
+      fetch(`/api/admin/questions?${params}`)
+        .then(r => r.json())
+        .then(j => setQuestionCount(j.pagination?.total ?? null))
+        .catch(() => setQuestionCount(null))
+        .finally(() => setLoadingCount(false))
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [form.difficulty, formOpen])
 
   // Load semua soal untuk opsi manual
   useEffect(() => {
     if (!formOpen || selectionMode !== 'manual' || allQuestions.length > 0) return
-    setLoadingQuestions(true)
-    fetch('/api/admin/questions?pageSize=1000&status=active')
-      .then(r => r.json())
-      .then(j => setAllQuestions(j.data || []))
-      .finally(() => setLoadingQuestions(false))
+    const timer = window.setTimeout(() => {
+      setLoadingQuestions(true)
+      fetch('/api/admin/questions?pageSize=1000&status=active&questionType=all')
+        .then(r => r.json())
+        .then(j => setAllQuestions(j.data || []))
+        .finally(() => setLoadingQuestions(false))
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [formOpen, selectionMode, allQuestions.length])
 
   const change = (key: string, value: unknown) => setForm(v => ({ ...v, [key]: value }))
@@ -245,7 +259,7 @@ export function ExamManager() {
                   const startsAt = e.target.value
                   const currentEnd = new Date(String(form.ends_at))
                   change('starts_at', startsAt)
-                  if (!form.ends_at || Number.isNaN(currentEnd.getTime()) || currentEnd <= new Date(startsAt)) change('ends_at', addMinutesToLocal(startsAt, Number(form.duration_minutes) || 45))
+                  if (!form.ends_at || Number.isNaN(currentEnd.getTime()) || currentEnd <= new Date(startsAt)) change('ends_at', addMinutesToLocal(startsAt, Number(form.duration_minutes) || 40))
                 }} /></label>
                 <label>Waktu selesai <span className="exam-required">*</span><input name="exam-ends-at" required type="datetime-local" min={form.starts_at ? addMinutesToLocal(String(form.starts_at), 1) : undefined} value={String(form.ends_at)} onChange={e => change('ends_at', e.target.value)} /></label>
               </div>
@@ -255,11 +269,11 @@ export function ExamManager() {
             <div className="exam-form-section">
               <p className="exam-section-label">Pengaturan waktu</p>
               <div className="exam-field-row">
-                <label>Durasi ujian (menit) <span className="exam-required">*</span><input type="number" min={1} max={480} required value={Number(form.duration_minutes)} onChange={e => {
+                <label>Durasi permainan <span className="exam-required">*</span><select value={Number(form.duration_minutes)} onChange={e => {
                   const duration = Number(e.target.value)
                   change('duration_minutes', duration)
                   if (form.starts_at) change('ends_at', addMinutesToLocal(String(form.starts_at), duration))
-                }} /></label>
+                }}><option value={30}>30 menit</option><option value={40}>40 menit</option></select></label>
                 <label>Waktu per soal (detik)<small>Kosongkan = tanpa batas</small><input type="number" min={10} max={3600} value={form.question_time_seconds !== null ? Number(form.question_time_seconds) : ''} onChange={e => change('question_time_seconds', e.target.value ? Number(e.target.value) : null)} placeholder="Misal: 90" /></label>
                 <label>Toleransi terlambat (menit)<input type="number" min={0} max={120} value={Number(form.late_tolerance_minutes)} onChange={e => change('late_tolerance_minutes', Number(e.target.value))} /></label>
               </div>
@@ -268,6 +282,11 @@ export function ExamManager() {
             {/* Soal */}
             <div className="exam-form-section">
               <p className="exam-section-label">Pengaturan soal</p>
+              <div className="exam-field-row">
+                <label>Jumlah soal uraian<input type="number" min={0} max={100} value={Number(form.essay_question_count ?? 5)} onChange={e => change('essay_question_count', Number(e.target.value))} /></label>
+                <label>Jumlah soal pilihan ganda<input type="number" min={0} max={500} value={Number(form.multiple_choice_question_count ?? 10)} onChange={e => change('multiple_choice_question_count', Number(e.target.value))} /></label>
+                <label>Mode peserta<select value={String(form.participant_mode||'group')} onChange={e=>change('participant_mode',e.target.value)}><option value="group">Kelompok</option><option value="individual">Individu</option></select></label>
+              </div>
               
               <div className="exam-mode-toggle">
                 <label className={selectionMode === 'auto' ? 'selected' : ''}>
@@ -291,8 +310,7 @@ export function ExamManager() {
                         <option value="">Semua tingkat</option>
                         <option value="mudah">Mudah</option>
                         <option value="sedang">Sedang</option>
-                        <option value="kontekstual">Kontekstual</option>
-                        <option value="tiga_bilangan">Tiga bilangan</option>
+                        <option value="hots">HOTS</option>
                       </select>
                       <span className={`exam-q-count-badge${questionCount === 0 ? ' zero' : ''}`}>
                         {loadingCount ? 'Menghitung…' : questionCount !== null ? `${questionCount} soal aktif tersedia` : ''}
@@ -369,6 +387,7 @@ export function ExamManager() {
                               <div className="exam-q-item-info">
                                 <strong>{q.question_code}</strong>
                                 <span className={`admin-badge difficulty-${q.difficulty}`}>{q.difficulty.replace('_', ' ')}</span>
+                                <span className="admin-badge">{q.question_type==='essay'?'Uraian':'Pilihan Ganda'}</span>
                                 <p>{q.story}</p>
                               </div>
                             </label>
@@ -390,6 +409,13 @@ export function ExamManager() {
                 <label><input type="checkbox" checked={Boolean(form.allow_resume)} onChange={e => change('allow_resume', e.target.checked)} /> Boleh lanjut setelah refresh</label>
                 <label><input type="checkbox" checked={Boolean(form.allow_rejoin)} onChange={e => change('allow_rejoin', e.target.checked)} /> Boleh keluar lalu masuk kembali</label>
               </div>
+              <div className="exam-field-row exam-scoring-row">
+                <label>Bobot uraian (%)<input type="number" min={0} max={100} value={Number(form.essay_weight??50)} onChange={e=>change('essay_weight',Number(e.target.value))}/></label>
+                <label>Bobot pilihan ganda (%)<input type="number" min={0} max={100} value={Number(form.multiple_choice_weight??50)} onChange={e=>change('multiple_choice_weight',Number(e.target.value))}/></label>
+                <label>Target ketercapaian<input type="number" min={0} max={100} value={Number(form.passing_score??75)} onChange={e=>change('passing_score',Number(e.target.value))}/></label>
+                <label>Waktu feedback uraian<select value={String(form.feedback_timing||'end')} onChange={e=>change('feedback_timing',e.target.value)}><option value="end">Setelah permainan selesai</option><option value="immediate">Langsung setelah dijawab</option></select></label>
+              </div>
+              <label className="admin-switch-row"><input type="checkbox" checked={Boolean(form.show_provisional_ranking)} onChange={e=>change('show_provisional_ranking',e.target.checked)}/><span><strong>Tampilkan peringkat sementara</strong><small>Peringkat siswa hanya menggunakan nilai pilihan ganda sampai uraian dinilai guru.</small></span></label>
             </div>
 
             {/* Status & aksi */}
@@ -423,7 +449,7 @@ export function ExamManager() {
               const playingRooms = rooms.filter(r => r.status === 'playing')
               const finishedRooms = rooms.filter(r => r.status === 'finished')
               const cd = countdown[exam.id] ?? formatCountdown(exam.ends_at)
-              const diffMs = new Date(exam.ends_at).getTime() - Date.now()
+              const diffMs = new Date(exam.ends_at).getTime() - nowMs
               const urgency = diffMs < 300_000 ? 'critical' : diffMs < 600_000 ? 'warning' : ''
               return (
                 <article key={exam.id} className="exam-monitor-card">

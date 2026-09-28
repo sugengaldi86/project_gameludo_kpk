@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: Context) {
 
     const { data: room } = await supabase
       .from('rooms')
-      .select('exams(question_time_seconds)')
+      .select('exams(question_time_seconds,essay_question_count,multiple_choice_question_count)')
       .eq('id', guest.roomId)
       .single()
 
@@ -72,7 +72,30 @@ export async function POST(request: Request, { params }: Context) {
 
     if (!answer) return NextResponse.json({ alreadyAnswered: true })
 
-    return NextResponse.json({ ...answer, timedOut })
+    const answerPayload = typeof answer === 'object' && answer ? answer as Record<string, unknown> : {}
+    if (!answerPayload.explanation) {
+      const [{ data: question }, { data: solutions }] = await Promise.all([
+        supabase.from('questions').select('known_information,asked_information,strategy,final_explanation').eq('id', body.questionId).maybeSingle(),
+        supabase.from('question_solutions').select('method,steps,result').eq('question_id', body.questionId),
+      ])
+      answerPayload.explanation = {
+        knownInformation: question?.known_information || null,
+        askedInformation: question?.asked_information || null,
+        strategy: question?.strategy || null,
+        finalExplanation: question?.final_explanation || null,
+        solutions: solutions || [],
+      }
+    }
+
+    const [{ count: essayCount }, { count: choiceCount }] = await Promise.all([
+      supabase.from('player_essay_answers').select('*', { count: 'exact', head: true }).eq('game_session_id', session.id),
+      supabase.from('player_answers').select('*', { count: 'exact', head: true }).eq('game_session_id', session.id),
+    ])
+    const essayTarget = exam?.essay_question_count ?? 5
+    const choiceTarget = exam?.multiple_choice_question_count ?? 10
+    const gameComplete = (essayCount || 0) >= essayTarget && (choiceCount || 0) >= choiceTarget
+    if (gameComplete) await supabase.rpc('finalize_completed_game', { p_room_id: guest.roomId })
+    return NextResponse.json({ ...answerPayload, timedOut, gameComplete, progress: { essay: essayCount || 0, multipleChoice: choiceCount || 0 }, targets: { essay: essayTarget, multipleChoice: choiceTarget } })
   } catch (error) {
     console.error('Error in POST /api/game/[code]/answer:', error)
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Server error' }, { status: 500 })

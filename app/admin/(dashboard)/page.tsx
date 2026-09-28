@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlertTriangle, ArrowRight, BookOpenCheck, CalendarClock, Target, Users } from 'lucide-react'
+import { AlertTriangle, ArrowRight, BookOpenCheck, CalendarClock, LibraryBig, Target, Users } from 'lucide-react'
 import { supabaseServer } from '@/lib/supabase'
 
 function percentage(correct: number | null, total: number | null) {
@@ -63,6 +63,7 @@ export default async function AdminDashboardPage() {
         <article className="admin-panel">
           <div className="admin-panel-title"><div><span className="admin-kicker">MENU CEPAT</span><h2>Kelola pembelajaran</h2></div></div>
           <div className="admin-quick-links">
+            <Link href="/admin/learning"><LibraryBig /><span><strong>Materi & Soal Uraian</strong><small>Kelola TP, materi halaman awal, dan empat tahap uraian.</small></span><ArrowRight /></Link>
             <Link href="/admin/questions"><BookOpenCheck /><span><strong>Kelola Bank Soal</strong><small>Tambah, edit, filter, dan nonaktifkan soal.</small></span><ArrowRight /></Link>
             <Link href="/admin/exams"><CalendarClock /><span><strong>Pengaturan Ujian</strong><small>Buat ujian, atur waktu, dan mulai game kelas.</small></span><ArrowRight /></Link>
             <Link href="/admin/reports"><Users /><span><strong>Rekap Nilai Siswa</strong><small>Lihat akurasi dan indikator pembelajaran.</small></span><ArrowRight /></Link>

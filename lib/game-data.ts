@@ -7,6 +7,8 @@ export type Player = {
   xp: number
   totalXp?: number
   totalScore?: number
+  correctAnswers?: number
+  wrongAnswers?: number
   level: number
   avatar: string
   active: boolean
@@ -15,6 +17,7 @@ export type Player = {
 export const boardCells = Array.from({ length: 225 }, (_, index) => index)
 export type Question = {
   id: string
+  type?: 'essay' | 'multiple_choice'
   code?: string
   text?: string
   content?: string

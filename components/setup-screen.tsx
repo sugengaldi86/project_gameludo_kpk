@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BookOpen, CalendarClock, Dices, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, CalendarClock, Dices, RefreshCw } from 'lucide-react'
 import { Player } from '@/lib/game-data'
 
 type SetupScreenProps = {
@@ -9,7 +9,7 @@ type SetupScreenProps = {
 const PLAYER_COLORS: ('blue' | 'green' | 'yellow' | 'red')[] = ['blue', 'green', 'yellow', 'red']
 
 export function SetupScreen({ onStart }: SetupScreenProps) {
-  type AvailableExam = { id:string; name:string; learning_goal:string|null; starts_at:string; ends_at:string; duration_minutes:number; question_time_seconds:number|null; status:'scheduled'|'active'; availability:'available'|'upcoming'; is_available:boolean }
+  type AvailableExam = { id:string; name:string; learning_goal:string|null; starts_at:string; ends_at:string; duration_minutes:number; question_time_seconds:number|null; essay_question_count:number; multiple_choice_question_count:number; status:'scheduled'|'active'; availability:'available'|'upcoming'; is_available:boolean }
   const [exams, setExams] = useState<AvailableExam[]>([])
   const [examId, setExamId] = useState('')
   const [loadingExams, setLoadingExams] = useState(true)
@@ -17,9 +17,12 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
   const [playerCount, setPlayerCount] = useState<number>(2)
   const [goal, setGoal] = useState('')
   const [names, setNames] = useState<string[]>(['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4'])
-  const [studentCodes, setStudentCodes] = useState<string[]>(['', '', '', ''])
+  const [attendanceNumbers, setAttendanceNumbers] = useState<string[]>(['', '', '', ''])
   const [isStarting, setIsStarting] = useState(false)
   const [error, setError] = useState('')
+  const [preparedPlayers, setPreparedPlayers] = useState<Player[] | null>(null)
+  const [materials, setMaterials] = useState<Array<{ id: string; title: string; body: string }>>([])
+  const [loadingMaterials, setLoadingMaterials] = useState(false)
 
   const loadExams = useCallback(async () => {
     setLoadingExams(true)
@@ -41,7 +44,10 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
     }
   }, [])
 
-  useEffect(() => { void loadExams() }, [loadExams])
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadExams(), 0)
+    return () => window.clearTimeout(timer)
+  }, [loadExams])
 
   const handleExamChange = (value: string) => {
     setExamId(value)
@@ -55,15 +61,15 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
     setNames(newNames)
   }
 
-  const handleStudentCodeChange = (index: number, value: string) => {
-    const newStudentCodes = [...studentCodes]
-    newStudentCodes[index] = value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 30)
-    setStudentCodes(newStudentCodes)
+  const handleAttendanceChange = (index: number, value: string) => {
+    const nextNumbers = [...attendanceNumbers]
+    nextNumbers[index] = value.replace(/\D/g, '').slice(0, 2)
+    setAttendanceNumbers(nextNumbers)
   }
 
   const handleStart = async () => {
     const newPlayers: Player[] = Array.from({ length: playerCount }).map((_, index) => ({
-      studentCode: studentCodes[index].trim(),
+      studentCode: attendanceNumbers[index].trim(),
       name: names[index] || `Pemain ${index + 1}`,
       color: PLAYER_COLORS[index],
       score: 0,
@@ -73,16 +79,36 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
       active: index === 0,
     }))
 
-    const activeCodes = studentCodes.slice(0, playerCount).map((code) => code.trim())
-    if (activeCodes.some((code) => !/^[A-Z0-9_-]{3,30}$/.test(code))) {
-      setError('Kode siswa setiap pemain wajib diisi, minimal 3 karakter.')
+    const activeNumbers = attendanceNumbers.slice(0, playerCount).map((number) => number.trim())
+    if (activeNumbers.some((number) => !/^(0[1-9]|[1-9][0-9])$/.test(number))) {
+      setError('Nomor absen wajib terdiri dari 2 angka, mulai 01 sampai 99.')
       return
     }
-    if (new Set(activeCodes).size !== activeCodes.length) {
-      setError('Kode siswa harus berbeda untuk setiap pemain.')
+    if (new Set(activeNumbers).size !== activeNumbers.length) {
+      setError('Nomor absen harus berbeda dalam satu permainan.')
       return
     }
     
+    setError('')
+
+    setLoadingMaterials(true)
+    try {
+      const response = await fetch('/api/learning-content', { cache: 'no-store' })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Materi belum dapat dimuat')
+      const nextMaterials = (result.data?.briefingMaterials || result.data?.materials || []).map((item: { id: string; title: string; body: string }) => item)
+      if (nextMaterials.length === 0) throw new Error('Materi pembelajaran belum dipublikasikan oleh admin.')
+      setMaterials(nextMaterials)
+      setPreparedPlayers(newPlayers)
+    } catch (materialError) {
+      setError(materialError instanceof Error ? materialError.message : 'Materi belum dapat dimuat')
+    } finally {
+      setLoadingMaterials(false)
+    }
+  }
+
+  const createGame = async () => {
+    if (!preparedPlayers) return
     setIsStarting(true)
     setError('')
 
@@ -90,7 +116,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
       const response = await fetch('/api/rooms/local', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ players: newPlayers, goal, examId: examId || null }),
+        body: JSON.stringify({ players: preparedPlayers, goal, examId: examId || null }),
       })
       const result = await response.json()
 
@@ -118,6 +144,37 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
     }
   }
 
+  if (preparedPlayers) {
+    return (
+      <main className="pregame-container">
+        <section className="pregame-card">
+          <button className="pregame-back" type="button" onClick={() => setPreparedPlayers(null)} disabled={isStarting}>
+            <ArrowLeft size={17} /> Kembali ke data pemain
+          </button>
+          <div className="pregame-heading">
+            <span className="pregame-icon"><BookOpen /></span>
+            <p className="eyebrow">PERSIAPAN SEBELUM BERMAIN</p>
+            <h1>Ingat kembali materi KPK</h1>
+            <p>Baca ringkasan berikut bersama-sama. Waktu permainan belum berjalan pada tahap ini.</p>
+          </div>
+          <div className="pregame-materials">
+            {materials.length > 0 ? materials.map((material, index) => (
+              <article className="pregame-material" key={material.id}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <div><h2>{material.title}</h2><p>{material.body}</p></div>
+              </article>
+            )) : null}
+          </div>
+          {error && <p className="setup-error" role="alert">{error}</p>}
+          <div className="pregame-notice"><CalendarClock size={18} /><span>Timer baru dimulai setelah tombol di bawah ditekan.</span></div>
+          <button className="start-game-btn" type="button" onClick={() => void createGame()} disabled={isStarting}>
+            {isStarting ? 'Menyiapkan permainan...' : <>Saya Sudah Paham, Mulai Permainan <ArrowRight size={19} /></>}
+          </button>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <div className="setup-container">
       <div className="setup-card">
@@ -126,7 +183,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
           <div>
             <p className="eyebrow">GAME LOKAL MATEMATIKA KELAS V</p>
             <h1>Petualangan Seru Melalui Ludo</h1>
-            <p className="setup-subtitle">Mainkan bergiliran pada satu perangkat, gunakan strategi Ludo klasik, dan bawa empat pion menuju pusat kemenangan.</p>
+            <p className="setup-subtitle">Isi data pemain, pelajari cara bermain, lalu mulai petualangan KPK bersama.</p>
           </div>
         </div>
 
@@ -190,16 +247,18 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
                     onChange={(e) => handleNameChange(i, e.target.value)}
                     className="setup-input"
                   />
-                  <label htmlFor={`student-code-${i}`}>NIS / Kode Siswa {i + 1}</label>
+                  <label htmlFor={`attendance-number-${i}`}>Nomor Absen {i + 1}</label>
                   <input
-                    id={`student-code-${i}`}
+                    id={`attendance-number-${i}`}
                     type="text"
-                    value={studentCodes[i]}
-                    onChange={(event) => handleStudentCodeChange(i, event.target.value)}
+                    inputMode="numeric"
+                    pattern="[0-9]{2}"
+                    value={attendanceNumbers[i]}
+                    onChange={(event) => handleAttendanceChange(i, event.target.value)}
                     className="setup-input"
-                    placeholder="Contoh: 5A-001"
-                    minLength={3}
-                    maxLength={30}
+                    placeholder="Contoh: 01"
+                    minLength={2}
+                    maxLength={2}
                     required
                   />
                 </div>
@@ -207,8 +266,8 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
             </div>
             
             {error && <p className="setup-error" role="alert">{error}</p>}
-            <button className="start-game-btn" onClick={handleStart} disabled={isStarting}>
-              {isStarting ? 'Menghubungkan ke database...' : 'Mulai Permainan Ludo!'}
+            <button className="start-game-btn" onClick={handleStart} disabled={loadingMaterials}>
+              {loadingMaterials ? 'Memuat ringkasan materi...' : 'Lanjut ke Ringkasan Materi'}
             </button>
           </div>
 
@@ -219,8 +278,10 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
             </div>
             <ul className="guide-list">
               <li>Lempar dadu untuk mendapatkan angka langkah.</li>
-              <li>Jawab soal KPK yang muncul. Jika benar, pionmu maju.</li>
-              <li>Gerakkan pion sesuai angka pada dadu.</li>
+              <li>Pion sudah berada di jalur sejak permainan dimulai.</li>
+              <li>Lempar dadu lalu gerakkan pion sesuai angka yang diperoleh.</li>
+              <li>{examId ? (() => { const exam = exams.find(item => item.id === examId); return exam ? `Kerjakan ${exam.essay_question_count} soal uraian, kemudian ${exam.multiple_choice_question_count} soal pilihan ganda.` : 'Jumlah soal mengikuti pengaturan ujian.' })() : 'Kerjakan 5 soal uraian, kemudian 10 soal pilihan ganda untuk mode latihan.'}</li>
+              <li>Jawaban menentukan nilai; pion tetap bergerak pada setiap giliran.</li>
               <li>Manfaatkan kotak aman agar pion terlindungi.</li>
               <li>Bawa semua pion ke pusat kemenangan.</li>
             </ul>

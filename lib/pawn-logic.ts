@@ -18,8 +18,8 @@ export function initializePawns(): PawnState[] {
         id: `${color}-${i}`,
         color,
         pawnNumber: i,
-        status: 'base',
-        position: i
+        status: 'track',
+        position: 0
       })
     }
   }

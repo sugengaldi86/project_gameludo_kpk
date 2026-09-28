@@ -9,6 +9,14 @@ function normalize(body: Record<string, unknown>) {
     starts_at: String(body.starts_at || ''), ends_at: String(body.ends_at || ''),
     duration_minutes: Number(body.duration_minutes), question_time_seconds: body.question_time_seconds ? Number(body.question_time_seconds) : null,
     question_count: body.question_count ? Number(body.question_count) : null, difficulty: String(body.difficulty || '') || null,
+    essay_question_count: Math.max(0, Number(body.essay_question_count ?? 5)),
+    multiple_choice_question_count: Math.max(0, Number(body.multiple_choice_question_count ?? 10)),
+    feedback_timing: body.feedback_timing === 'immediate' ? 'immediate' : 'end',
+    show_provisional_ranking: body.show_provisional_ranking !== false,
+    passing_score: Math.min(100, Math.max(0, Number(body.passing_score ?? 75))),
+    essay_weight: Math.min(100, Math.max(0, Number(body.essay_weight ?? 50))),
+    multiple_choice_weight: Math.min(100, Math.max(0, Number(body.multiple_choice_weight ?? 50))),
+    participant_mode: body.participant_mode === 'individual' ? 'individual' : 'group',
     randomize_questions: body.randomize_questions !== false, randomize_options: body.randomize_options === true,
     late_tolerance_minutes: Number(body.late_tolerance_minutes || 0), auto_submit: body.auto_submit !== false,
     allow_resume: body.allow_resume !== false, allow_rejoin: body.allow_rejoin !== false,
@@ -20,6 +28,8 @@ function validate(data: ReturnType<typeof normalize>) {
   if (!data.starts_at || !data.ends_at || new Date(data.ends_at) <= new Date(data.starts_at)) return 'Jadwal ujian tidak valid'
   if (!Number.isInteger(data.duration_minutes) || data.duration_minutes < 1 || data.duration_minutes > 480) return 'Durasi ujian harus 1-480 menit'
   if (data.question_time_seconds !== null && data.question_time_seconds < 10) return 'Waktu per soal minimal 10 detik'
+  if (!Number.isInteger(data.essay_question_count) || !Number.isInteger(data.multiple_choice_question_count) || data.essay_question_count + data.multiple_choice_question_count < 1) return 'Jumlah soal uraian dan pilihan ganda tidak valid'
+  if (data.essay_weight + data.multiple_choice_weight !== 100) return 'Total bobot uraian dan pilihan ganda harus 100%'
   if (!statuses.includes(data.status)) return 'Status ujian tidak valid'
   return null
 }
@@ -58,9 +68,10 @@ export async function POST(request: Request) {
   }
   
   if (Array.isArray(rawBody.selected_questions) && rawBody.selected_questions.length > 0) {
-    const questionMappings = rawBody.selected_questions.map((qid: string) => ({
+    const questionMappings = rawBody.selected_questions.map((qid: string, index: number) => ({
       exam_id: data.id,
-      question_id: qid
+      question_id: qid,
+      position: index + 1,
     }))
     await supabaseServer().from('exam_questions').insert(questionMappings)
   }

@@ -6,6 +6,7 @@ import { useState } from 'react'
 import {
   BarChart3,
   BookOpenCheck,
+  LibraryBig,
   CalendarClock,
   Gamepad2,
   LayoutDashboard,
@@ -17,6 +18,7 @@ import { LogoutButton } from './logout-button'
 const navigation = [
   { href: '/admin', label: 'Ringkasan', icon: LayoutDashboard },
   { href: '/admin/questions', label: 'Bank Soal', icon: BookOpenCheck },
+  { href: '/admin/learning', label: 'Materi & Uraian', icon: LibraryBig },
   { href: '/admin/exams', label: 'Pengaturan Ujian', icon: CalendarClock },
   { href: '/admin/reports', label: 'Rekap Nilai', icon: BarChart3 },
 ]

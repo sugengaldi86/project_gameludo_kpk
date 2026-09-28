@@ -10,8 +10,9 @@ export async function GET(request: Request) {
   const search = searchParams.get('search')?.trim() || ''
   const difficulty = searchParams.get('difficulty') || ''
   const status = searchParams.get('status') || ''
+  const questionType = searchParams.get('questionType') || 'multiple_choice'
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
-  const pageSize = Math.min(50, Math.max(5, Number(searchParams.get('pageSize')) || 10))
+  const pageSize = Math.min(1000, Math.max(5, Number(searchParams.get('pageSize')) || 10))
   const from = (page - 1) * pageSize
 
   let query = supabaseServer()
@@ -19,6 +20,8 @@ export async function GET(request: Request) {
     .select('*,question_options(*),question_solutions(*)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, from + pageSize - 1)
+
+  if (questionType !== 'all') query = query.eq('question_type', questionType)
 
   const safeSearch = search.replace(/[,%()]/g, ' ')
   if (safeSearch) query = query.or(`question_code.ilike.%${safeSearch}%,story.ilike.%${safeSearch}%`)

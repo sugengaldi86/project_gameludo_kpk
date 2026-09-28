@@ -18,6 +18,10 @@ type QuestionModalProps = {
   onLeave?: () => void
   onAnswer: (answer: string | null) => void
   onContinue: () => void
+  scoreAwarded?: number
+  xpAwarded?: number
+  currentScore?: number
+  streak?: number
 }
 
 export function QuestionModal({
@@ -34,21 +38,16 @@ export function QuestionModal({
   onLeave,
   onAnswer,
   onContinue,
+  scoreAwarded,
+  xpAwarded,
+  currentScore,
+  streak,
 }: QuestionModalProps) {
-  const [timeLeft, setTimeLeft] = useState<number | null>(null)
+  const [timeLeft, setTimeLeft] = useState<number | null>(() => open && questionTimeSeconds && !feedback ? questionTimeSeconds : null)
   // Guard agar auto-submit timeout hanya dikirim SATU KALI
   const hasAutoSubmitted = useRef(false)
 
   // Timer initialization — reset guard setiap soal baru
-  useEffect(() => {
-    if (open && questionTimeSeconds && !feedback) {
-      setTimeLeft(questionTimeSeconds)
-      hasAutoSubmitted.current = false
-    } else if (feedback || !open) {
-      setTimeLeft(null)
-    }
-  }, [open, questionTimeSeconds, feedback])
-
   // Timer countdown
   useEffect(() => {
     if (timeLeft === null || timeLeft <= 0 || feedback) return
@@ -73,7 +72,7 @@ export function QuestionModal({
 
   return (
     <div className="question-overlay" role="dialog" aria-modal="true" aria-labelledby="question-modal-title">
-      <div className="question-modal" style={{ overflowY: 'auto', maxHeight: '90vh' }}>
+      <div className="question-modal">
         {questionTimeSeconds && !hasAnswered && timeLeft !== null && (
           <div className="question-timer-bar">
             <div className={`question-timer-fill ${isUrgent ? 'urgent' : ''}`} style={{ width: `${timerPercent}%` }} />

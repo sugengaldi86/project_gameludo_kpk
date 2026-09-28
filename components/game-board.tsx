@@ -98,12 +98,9 @@ export function GameBoard({ dice = 4, rolling = false, activePawnColor, pawns = 
         <div className="cells" aria-hidden="true">
           {boardCells.map((cell) => {
             const { isCenter, isPath, isSafe, isStar } = getBoardCellClass(cell)
-            // Tampilkan icon '?' di kotak path biasa agar tahu itu kotak soal
-            const showQuestionMark = isPath && !isCenter && !isStar
             return (
               <div key={cell} className={`board-cell ${isCenter ? 'center' : ''} ${isPath ? 'path' : ''} ${isSafe ? 'safe' : ''} ${isStar ? 'star' : ''}`}>
                 {isStar && <Star />}
-                {showQuestionMark && <span className="question-mark" style={{ opacity: 0.15, fontSize: '0.8rem', fontWeight: 900 }}>?</span>}
               </div>
             )
           })}
@@ -116,7 +113,7 @@ export function GameBoard({ dice = 4, rolling = false, activePawnColor, pawns = 
         {/* Render dynamic pawns */}
         {pawns.map(pawn => {
           const isMovable = activePawnColor === pawn.color && pawn.status !== 'finished' && (
-            (pawn.status === 'base' && dice === 6) ||
+            pawn.status === 'base' ||
             pawn.status === 'track' ||
             (pawn.status === 'home' && pawn.position + dice <= 5)
           )

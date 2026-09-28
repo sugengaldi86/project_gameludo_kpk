@@ -5,7 +5,7 @@ type Context = { params: Promise<{ id: string }> }
 export async function PATCH(request: Request, { params }: Context) {
   if (!(await getAdminSession())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params; const body = await request.json()
-  const allowed = ['name','learning_goal','starts_at','ends_at','duration_minutes','question_time_seconds','question_count','difficulty','randomize_questions','randomize_options','late_tolerance_minutes','auto_submit','allow_resume','allow_rejoin','max_attempts','status']
+  const allowed = ['name','learning_goal','starts_at','ends_at','duration_minutes','question_time_seconds','question_count','essay_question_count','multiple_choice_question_count','difficulty','feedback_timing','show_provisional_ranking','passing_score','essay_weight','multiple_choice_weight','participant_mode','randomize_questions','randomize_options','late_tolerance_minutes','auto_submit','allow_resume','allow_rejoin','max_attempts','status']
   const changes = Object.fromEntries(Object.entries(body).filter(([key]) => allowed.includes(key)))
   if ('starts_at' in changes || 'ends_at' in changes) {
     const startsAt = new Date(String(changes.starts_at || ''))
@@ -22,6 +22,11 @@ export async function PATCH(request: Request, { params }: Context) {
     if (!Number.isInteger(duration) || duration < 1 || duration > 480) {
       return NextResponse.json({ error: 'Durasi ujian harus antara 1 sampai 480 menit.' }, { status: 400 })
     }
+  }
+  const essayWeight = Number(changes.essay_weight ?? body.essay_weight ?? 50)
+  const multipleChoiceWeight = Number(changes.multiple_choice_weight ?? body.multiple_choice_weight ?? 50)
+  if (essayWeight + multipleChoiceWeight !== 100) {
+    return NextResponse.json({ error: 'Total bobot uraian dan pilihan ganda harus 100%.' }, { status: 400 })
   }
   const { data, error } = await supabaseServer().from('exams').update({ ...changes, updated_at: new Date().toISOString() }).eq('id', id).select().single()
   if (error) {
@@ -50,9 +55,10 @@ export async function PATCH(request: Request, { params }: Context) {
   if (Array.isArray(body.selected_questions)) {
     await supabaseServer().from('exam_questions').delete().eq('exam_id', id)
     if (body.selected_questions.length > 0) {
-      const questionMappings = body.selected_questions.map((qid: string) => ({
+      const questionMappings = body.selected_questions.map((qid: string, index: number) => ({
         exam_id: id,
-        question_id: qid
+        question_id: qid,
+        position: index + 1,
       }))
       await supabaseServer().from('exam_questions').insert(questionMappings)
     }

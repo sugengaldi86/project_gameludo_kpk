@@ -10,10 +10,10 @@ async function run() {
   
   console.log('Seeding learning contents...');
   const { error } = await supabase.from('learning_contents').insert([
-    { content_type: 'objective', title: 'Memahami konsep KPK', body: 'Menjelaskan kelipatan, kelipatan persekutuan, dan KPK.', display_order: 10, is_active: true },
-    { content_type: 'objective', title: 'Memahami masalah', body: 'Mengidentifikasi informasi yang diketahui dan ditanyakan.', display_order: 20, is_active: true },
-    { content_type: 'objective', title: 'Merencanakan penyelesaian', body: 'Memilih strategi penyelesaian masalah KPK.', display_order: 30, is_active: true },
-    { content_type: 'objective', title: 'Menyelesaikan dan memeriksa', body: 'Melaksanakan perhitungan dan memeriksa kebenaran jawaban.', display_order: 40, is_active: true },
+    { content_type: 'objective', title: 'Memahami konsep KPK', body: 'Melalui media pembelajaran Ludo Web, murid kelas V mampu menjelaskan konsep kelipatan, kelipatan persekutuan, dan KPK dari dua bilangan dengan tepat, minimal 75% dari soal yang diberikan.', display_order: 10, is_active: true },
+    { content_type: 'objective', title: 'Memahami masalah', body: 'Melalui media pembelajaran Ludo Web, murid kelas V mampu mengidentifikasi informasi yang diketahui dan ditanyakan dari soal cerita yang berkaitan dengan KPK dengan tepat, minimal 75% dari soal yang diberikan.', display_order: 20, is_active: true },
+    { content_type: 'objective', title: 'Merencanakan penyelesaian', body: 'Melalui media pembelajaran Ludo Web, murid kelas V mampu menyusun strategi penyelesaian masalah kontekstual yang melibatkan dua bilangan menggunakan konsep KPK dengan tepat, minimal 75% dari soal yang diberikan.', display_order: 30, is_active: true },
+    { content_type: 'objective', title: 'Menyelesaikan dan memeriksa', body: 'Melalui media pembelajaran Ludo Web, murid kelas V mampu menyelesaikan masalah kontekstual sehari-hari menggunakan KPK dari dua bilangan serta memeriksa kembali ketepatan jawaban yang diperoleh secara tepat dan konsisten, minimal 75% dari soal yang diberikan.', display_order: 40, is_active: true },
     { content_type: 'material', title: 'Pengertian Kelipatan', body: 'Kelipatan adalah hasil kali suatu bilangan dengan bilangan asli (1, 2, 3, 4, ...).', display_order: 50, is_active: true },
     { content_type: 'material', title: 'Pengertian Kelipatan Persekutuan', body: 'Kelipatan persekutuan adalah kelipatan yang sama yang dimiliki oleh dua bilangan atau lebih.', display_order: 60, is_active: true },
     { content_type: 'material', title: 'Pengertian KPK', body: 'KPK (Kelipatan Persekutuan Terkecil) adalah bilangan paling kecil di antara semua kelipatan persekutuan.', display_order: 70, is_active: true },

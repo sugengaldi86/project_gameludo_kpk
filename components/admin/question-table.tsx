@@ -8,6 +8,16 @@ import type { AdminQuestion } from '@/lib/admin-types'
 
 type Pagination = { page: number; pageSize: number; total: number; totalPages: number }
 
+async function readJsonResponse(response: Response): Promise<{ error?: string; data?: AdminQuestion[]; pagination?: Pagination }> {
+  const text = await response.text()
+  if (!text) return {}
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { error: text }
+  }
+}
+
 export function QuestionTable() {
   const searchParams = useSearchParams()
   const [questions, setQuestions] = useState<AdminQuestion[]>([])
@@ -29,10 +39,10 @@ export function QuestionTable() {
     if (status) params.set('status', status)
     try {
       const response = await fetch(`/api/admin/questions?${params}`)
-      const result = await response.json()
+      const result = await readJsonResponse(response)
       if (!response.ok) throw new Error(result.error || 'Gagal memuat soal')
-      setQuestions(result.data)
-      setPagination(result.pagination)
+      setQuestions(result.data || [])
+      if (result.pagination) setPagination(result.pagination)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Gagal memuat soal')
     } finally {
@@ -47,13 +57,15 @@ export function QuestionTable() {
 
   async function removeQuestion() {
     if (!deleteTarget) return
-    const response = await fetch(`/api/admin/questions/${deleteTarget.id}`, { method: 'DELETE' })
-    const result = await response.json()
-    if (!response.ok) {
-      setError(result.error || 'Gagal menghapus soal')
-    } else {
+    setError('')
+    try {
+      const response = await fetch(`/api/admin/questions/${deleteTarget.id}`, { method: 'DELETE' })
+      const result = await readJsonResponse(response)
+      if (!response.ok) throw new Error(result.error || 'Gagal menghapus soal')
       setDeleteTarget(null)
       await loadQuestions()
+    } catch (removeError) {
+      setError(removeError instanceof TypeError ? 'Tidak dapat terhubung ke server.' : removeError instanceof Error ? removeError.message : 'Gagal menghapus soal')
     }
   }
 
@@ -62,7 +74,7 @@ export function QuestionTable() {
       <div className="admin-toolbar">
         <div className="admin-search"><Search /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Cari kode atau cerita soal..." /></div>
         <select value={difficulty} onChange={(event) => { setDifficulty(event.target.value); setPage(1) }} aria-label="Filter kesulitan">
-          <option value="">Semua kesulitan</option><option value="mudah">Mudah</option><option value="sedang">Sedang</option><option value="kontekstual">Kontekstual</option><option value="tiga_bilangan">Tiga bilangan</option>
+          <option value="">Semua kesulitan</option><option value="mudah">Mudah</option><option value="sedang">Sedang</option><option value="hots">HOTS</option>
         </select>
         <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1) }} aria-label="Filter status">
           <option value="">Semua status</option><option value="active">Aktif</option><option value="inactive">Nonaktif</option>

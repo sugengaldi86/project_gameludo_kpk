@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { ArrowLeft, Calculator, CheckCircle2, Save } from 'lucide-react'
 import type { AdminQuestion, OptionKey, QuestionInput } from '@/lib/admin-types'
-import { calculateLcm } from '@/lib/question-validation'
+import { calculateLcm, validateQuestionInput } from '@/lib/question-validation'
 
 const optionKeys: OptionKey[] = ['A', 'B', 'C', 'D']
 
@@ -47,17 +47,28 @@ export function QuestionForm({ questionId }: { questionId?: string }) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const calculatedLcm = useMemo(() => calculateLcm([form.number_a, form.number_b, ...(form.number_c ? [form.number_c] : [])].filter((number) => number > 0)), [form.number_a, form.number_b, form.number_c])
+  const calculatedLcm = useMemo(
+    () => calculateLcm([
+      form.number_a,
+      form.number_b,
+      ...(form.operand_count === 3 && form.number_c ? [form.number_c] : []),
+    ].filter((number) => number > 0)),
+    [form.number_a, form.number_b, form.number_c, form.operand_count],
+  )
 
   useEffect(() => {
     if (!questionId) return
     fetch(`/api/admin/questions/${questionId}`)
       .then(async (response) => {
-        const result = await response.json()
+        const responseText = await response.text()
+        let result: { error?: string; data?: AdminQuestion } = {}
+        try { result = responseText ? JSON.parse(responseText) : {} }
+        catch { result = { error: responseText } }
         if (!response.ok) throw new Error(result.error || 'Gagal memuat soal')
+        if (!result.data) throw new Error('Data soal tidak lengkap')
         setForm(normalizeQuestion(result.data))
       })
-      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Gagal memuat soal'))
+      .catch((loadError) => setError(loadError instanceof TypeError ? 'Tidak dapat terhubung ke server.' : loadError instanceof Error ? loadError.message : 'Gagal memuat soal'))
       .finally(() => setLoading(false))
   }, [questionId])
 
@@ -86,20 +97,43 @@ export function QuestionForm({ questionId }: { questionId?: string }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setSaving(true)
     setError('')
     setSuccess('')
-    const payload = { ...form, correct_value: calculatedLcm, question_solutions: form.question_solutions.map((solution) => ({ ...solution, result: calculatedLcm })) }
+
+    const payload = {
+      ...form,
+      number_c: form.operand_count === 3 ? form.number_c : null,
+      correct_value: calculatedLcm,
+      question_solutions: form.question_solutions.map((solution) => ({ ...solution, result: calculatedLcm })),
+    }
+    const validation = validateQuestionInput(payload)
+    if (!validation.success) {
+      setError(validation.error)
+      return
+    }
+
+    setSaving(true)
     try {
       const response = await fetch(questionId ? `/api/admin/questions/${questionId}` : '/api/admin/questions', {
-        method: questionId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        method: questionId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validation.data),
       })
-      const result = await response.json()
+      const responseText = await response.text()
+      let result: { error?: string; data?: unknown } = {}
+      try {
+        result = responseText ? JSON.parse(responseText) : {}
+      } catch {
+        result = { error: responseText }
+      }
       if (!response.ok) throw new Error(result.error || 'Soal gagal disimpan')
       setSuccess(questionId ? 'Perubahan soal berhasil disimpan.' : 'Soal baru berhasil ditambahkan.')
       if (!questionId) window.setTimeout(() => router.replace('/admin/questions'), 700)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Soal gagal disimpan')
+      const isNetworkError = saveError instanceof TypeError
+      setError(isNetworkError
+        ? 'Tidak dapat terhubung ke server. Periksa koneksi internet atau DNS, lalu coba lagi.'
+        : saveError instanceof Error ? saveError.message : 'Soal gagal disimpan')
     } finally {
       setSaving(false)
     }

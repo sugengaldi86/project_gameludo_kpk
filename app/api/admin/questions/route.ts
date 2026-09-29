@@ -41,22 +41,37 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   if (!(await getAdminSession())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const validation = validateQuestionInput(await request.json())
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Format data soal tidak valid' }, { status: 400 })
+  }
+
+  const validation = validateQuestionInput(body)
   if (!validation.success) return NextResponse.json({ error: validation.error }, { status: 400 })
 
   const { question_options, question_solutions, ...question } = validation.data
-  const supabase = supabaseServer()
-  const { data: created, error: questionError } = await supabase.rpc('save_admin_question', {
-    p_question_id: null,
-    p_question: question,
-    p_options: question_options,
-    p_solutions: question_solutions,
-  })
+  try {
+    const supabase = supabaseServer()
+    const { data: created, error: questionError } = await supabase.rpc('save_admin_question', {
+      p_question_id: null,
+      p_question: question,
+      p_options: question_options,
+      p_solutions: question_solutions,
+    })
 
-  if (questionError) {
-    const duplicate = questionError.code === '23505'
-    return NextResponse.json({ error: duplicate ? 'Kode soal sudah digunakan' : questionError.message }, { status: duplicate ? 409 : 500 })
+    if (questionError) {
+      const duplicate = questionError.code === '23505'
+      return NextResponse.json({ error: duplicate ? 'Kode soal sudah digunakan' : questionError.message }, { status: duplicate ? 409 : 500 })
+    }
+
+    return NextResponse.json({ data: created }, { status: 201 })
+  } catch (error) {
+    console.error('Failed to save admin question:', error)
+    return NextResponse.json(
+      { error: 'Database tidak dapat dihubungi. Periksa konfigurasi Supabase dan coba lagi.' },
+      { status: 503 },
+    )
   }
-
-  return NextResponse.json({ data: created }, { status: 201 })
 }

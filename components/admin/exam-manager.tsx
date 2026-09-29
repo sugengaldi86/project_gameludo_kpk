@@ -119,7 +119,7 @@ export function ExamManager() {
     if (!formOpen || selectionMode !== 'manual' || allQuestions.length > 0) return
     const timer = window.setTimeout(() => {
       setLoadingQuestions(true)
-      fetch('/api/admin/questions?pageSize=1000&status=active&questionType=all')
+      fetch('/api/admin/questions?pageSize=1000&status=active&questionType=all&compact=true')
         .then(r => r.json())
         .then(j => setAllQuestions(j.data || []))
         .finally(() => setLoadingQuestions(false))

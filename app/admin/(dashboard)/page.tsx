@@ -8,38 +8,31 @@ function percentage(correct: number | null, total: number | null) {
 
 export default async function AdminDashboardPage() {
   const supabase = supabaseServer()
-  const [questions, profiles, answers, progress] = await Promise.all([
-    supabase.from('questions').select('*', { count: 'exact', head: true }),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('player_answers').select('is_correct'),
-    supabase.from('learning_progress').select(
-      'identify_known_correct,identify_known_total,strategy_correct,strategy_total,kpk_correct,kpk_total,verification_correct,verification_total'
-    ),
-  ])
+  const statsResult = await supabase.rpc('get_admin_dashboard_stats')
+  let stats = statsResult.data as Record<string, number> | null
 
-  const databaseError = questions.error || profiles.error || answers.error || progress.error
-  if (databaseError) {
-    return <div className="admin-alert error" role="alert">Dashboard tidak dapat memuat data Supabase: {databaseError.message}</div>
+  // Fallback sementara sampai migration 20261013 diterapkan.
+  if (statsResult.error || !stats) {
+    const [questions, profiles, answers, progress] = await Promise.all([
+      supabase.from('questions').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('player_answers').select('is_correct'),
+      supabase.from('learning_progress').select('identify_known_correct,identify_known_total,strategy_correct,strategy_total,kpk_correct,kpk_total,verification_correct,verification_total'),
+    ])
+    const databaseError = questions.error || profiles.error || answers.error || progress.error
+    if (databaseError) return <div className="admin-alert error" role="alert">Dashboard tidak dapat memuat data Supabase: {databaseError.message}</div>
+    const rows = answers.data || []
+    stats = (progress.data || []).reduce<Record<string, number>>((sum, row) => ({
+      ...sum,
+      informationCorrect: sum.informationCorrect + (row.identify_known_correct || 0), informationTotal: sum.informationTotal + (row.identify_known_total || 0),
+      strategyCorrect: sum.strategyCorrect + (row.strategy_correct || 0), strategyTotal: sum.strategyTotal + (row.strategy_total || 0),
+      kpkCorrect: sum.kpkCorrect + (row.kpk_correct || 0), kpkTotal: sum.kpkTotal + (row.kpk_total || 0),
+      verificationCorrect: sum.verificationCorrect + (row.verification_correct || 0), verificationTotal: sum.verificationTotal + (row.verification_total || 0),
+    }), { questions: questions.count || 0, profiles: profiles.count || 0, answers: rows.length, correctAnswers: rows.filter(row => row.is_correct).length, informationCorrect: 0, informationTotal: 0, strategyCorrect: 0, strategyTotal: 0, kpkCorrect: 0, kpkTotal: 0, verificationCorrect: 0, verificationTotal: 0 })
   }
-
-  const answerRows = answers.data || []
-  const averageAccuracy = answerRows.length
-    ? Math.round((answerRows.filter((answer) => answer.is_correct).length / answerRows.length) * 100)
-    : 0
-
-  const totals = (progress.data || []).reduce(
-    (sum, row) => ({
-      informationCorrect: sum.informationCorrect + (row.identify_known_correct || 0),
-      informationTotal: sum.informationTotal + (row.identify_known_total || 0),
-      strategyCorrect: sum.strategyCorrect + (row.strategy_correct || 0),
-      strategyTotal: sum.strategyTotal + (row.strategy_total || 0),
-      kpkCorrect: sum.kpkCorrect + (row.kpk_correct || 0),
-      kpkTotal: sum.kpkTotal + (row.kpk_total || 0),
-      verificationCorrect: sum.verificationCorrect + (row.verification_correct || 0),
-      verificationTotal: sum.verificationTotal + (row.verification_total || 0),
-    }),
-    { informationCorrect: 0, informationTotal: 0, strategyCorrect: 0, strategyTotal: 0, kpkCorrect: 0, kpkTotal: 0, verificationCorrect: 0, verificationTotal: 0 }
-  )
+  const totalAnswers = Number(stats.answers || 0)
+  const averageAccuracy = percentage(Number(stats.correctAnswers || 0), totalAnswers)
+  const totals = stats
 
   const indicators = [
     { label: 'Memahami Informasi', value: percentage(totals.informationCorrect, totals.informationTotal) },
@@ -55,9 +48,9 @@ export default async function AdminDashboardPage() {
         <div><span className="admin-kicker">RINGKASAN</span><h1>Selamat datang di Dashboard Ludo KPK</h1><p>Pantau bank soal dan perkembangan belajar murid dari satu tempat.</p></div>
       </header>
       <section className="admin-metric-grid">
-        <article className="admin-metric blue"><div className="admin-metric-icon"><BookOpenCheck /></div><div><span>Total Soal</span><strong>{questions.count ?? 0}</strong><small>Soal dalam bank</small></div></article>
-        <article className="admin-metric green"><div className="admin-metric-icon"><Users /></div><div><span>Total Murid</span><strong>{profiles.count ?? 0}</strong><small>Profil pemain tercatat</small></div></article>
-        <article className="admin-metric amber"><div className="admin-metric-icon"><Target /></div><div><span>Rata-rata Akurasi</span><strong>{averageAccuracy}%</strong><small>Dari {answerRows.length} jawaban</small></div></article>
+        <article className="admin-metric blue"><div className="admin-metric-icon"><BookOpenCheck /></div><div><span>Total Soal</span><strong>{stats.questions || 0}</strong><small>Soal dalam bank</small></div></article>
+        <article className="admin-metric green"><div className="admin-metric-icon"><Users /></div><div><span>Total Murid</span><strong>{stats.profiles || 0}</strong><small>Profil pemain tercatat</small></div></article>
+        <article className="admin-metric amber"><div className="admin-metric-icon"><Target /></div><div><span>Rata-rata Akurasi</span><strong>{averageAccuracy}%</strong><small>Dari {totalAnswers} jawaban</small></div></article>
       </section>
       <section className="admin-dashboard-grid">
         <article className="admin-panel">

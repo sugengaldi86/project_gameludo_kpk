@@ -62,11 +62,18 @@ export async function GET(request: Request) {
     progress = progressResult.data || []
   }
 
-  const reportProfiles = (profiles || []).filter((profile) => !scopedReport || (answers || []).some((answer) => answer.player_id === profile.id))
+  const answersByPlayer = new Map<string, typeof answers>()
+  for (const answer of answers || []) {
+    const grouped = answersByPlayer.get(answer.player_id) || []
+    grouped.push(answer)
+    answersByPlayer.set(answer.player_id, grouped)
+  }
+  const progressByPlayer = new Map(progress.map(row => [String(row.player_id), row]))
+  const reportProfiles = (profiles || []).filter((profile) => !scopedReport || answersByPlayer.has(profile.id))
   const reports: StudentReport[] = reportProfiles.map((profile) => {
-    const playerAnswers = (answers || []).filter((answer) => answer.player_id === profile.id)
+    const playerAnswers = answersByPlayer.get(profile.id) || []
     const correctCount = playerAnswers.filter((answer) => answer.is_correct).length
-    const studentProgress = progress.find((row) => row.player_id === profile.id)
+    const studentProgress = progressByPlayer.get(profile.id)
     const knownAnswers = playerAnswers.filter((answer) => answer.identify_known_correct !== null)
     const strategyAnswers = playerAnswers.filter((answer) => answer.strategy_correct !== null)
     const verificationAnswers = playerAnswers.filter((answer) => answer.verification_correct !== null)

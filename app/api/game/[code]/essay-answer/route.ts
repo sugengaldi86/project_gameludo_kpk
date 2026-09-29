@@ -16,6 +16,51 @@ export async function POST(request: Request, { params }: Context) {
     if (typeof body.questionId !== 'string' || fields.some(key => typeof body[key] !== 'string' || !body[key].trim())) return NextResponse.json({ error: 'Semua tahap jawaban wajib diisi' }, { status: 400 })
     if (!['multiples','prime_factorization','repeated_division'].includes(body.method)) return NextResponse.json({ error: 'Pilih satu metode penyelesaian' }, { status: 400 })
     const supabase = supabaseServer()
+
+    // Jalur atomik: lock session/turn, insert jawaban, update state, dan hitung
+    // progres dilakukan dalam satu transaksi database.
+    const atomicResult = await supabase.rpc('submit_essay_game_turn', {
+      p_room_id: guest.roomId,
+      p_question_id: body.questionId,
+      p_answer: {
+        known: body.known.trim(), asked: body.asked.trim(), plan: body.plan.trim(),
+        solution: body.solution.trim(), check: body.check.trim(), method: body.method,
+      },
+    })
+    const missingAtomicRpc = ['PGRST202', '42883'].includes(atomicResult.error?.code || '')
+      || atomicResult.error?.message?.includes('submit_essay_game_turn')
+    if (!atomicResult.error && atomicResult.data) {
+      const result = atomicResult.data as {
+        saved?: boolean; alreadyAnswered?: boolean; showExplanation?: boolean; gameComplete?: boolean
+        essayCount?: number; choiceCount?: number; targets?: { essay: number; multipleChoice: number }
+      }
+      if (result.alreadyAnswered) return NextResponse.json(result)
+      let explanation = null
+      if (result.showExplanation) {
+        const [{ data: question }, { data: solutions }] = await Promise.all([
+          supabase.from('questions').select('known_information,asked_information,strategy,final_explanation').eq('id', body.questionId).maybeSingle(),
+          supabase.from('question_solutions').select('method,steps,result').eq('question_id', body.questionId),
+        ])
+        explanation = {
+          knownInformation: question?.known_information || null,
+          askedInformation: question?.asked_information || null,
+          strategy: question?.strategy || null,
+          finalExplanation: question?.final_explanation || null,
+          solutions: solutions || [],
+        }
+      }
+      return NextResponse.json({
+        saved: true, explanation, feedbackDeferred: !result.showExplanation,
+        gameComplete: Boolean(result.gameComplete), essayCount: result.essayCount || 0,
+        choiceCount: result.choiceCount || 0, targets: result.targets,
+      })
+    }
+    if (!missingAtomicRpc) {
+      const duplicate = atomicResult.error?.code === '23505'
+      return NextResponse.json({ error: duplicate ? 'Jawaban sudah tersimpan' : atomicResult.error?.message || 'Jawaban gagal disimpan' }, { status: duplicate ? 409 : 500 })
+    }
+
+    // Fallback kompatibilitas sebelum migration 20261013 diterapkan.
     const [{ data: session, error: sessionError }, { data: room, error: roomError }] = await Promise.all([
       supabase.from('game_sessions').select('id,status,current_player_id,current_turn_number').eq('room_id', guest.roomId).single(),
       supabase.from('rooms').select('exams(essay_question_count,multiple_choice_question_count,feedback_timing)').eq('id', guest.roomId).single(),

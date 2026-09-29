@@ -57,6 +57,17 @@ export async function GET(_request: Request, { params }: Context) {
     const guest = await getGuestRoomSession(code)
     if (!guest) return NextResponse.json({ error: 'Sesi pemain tidak valid atau kedaluwarsa' }, { status: 401 })
     const supabase = supabaseServer()
+
+    // Jalur cepat: satu round-trip database untuk seluruh state permainan.
+    // Fallback di bawah tetap dipakai sampai migration 20261013 diterapkan.
+    const fastState = await supabase.rpc('get_game_state_fast', { p_room_id: guest.roomId })
+    if (!fastState.error && fastState.data) return NextResponse.json(fastState.data)
+    const missingFastStateRpc = ['PGRST202', '42883'].includes(fastState.error?.code || '')
+      || fastState.error?.message?.includes('get_game_state_fast')
+    if (!missingFastStateRpc) {
+      console.error('[get_game_state_fast] Falling back to legacy state queries:', fastState.error?.message)
+    }
+
     const [roomResult, sessionResult, playersResult] = await Promise.all([
       supabase.from('rooms').select('id,room_code,game_mode,learning_goal,status,end_time,exam_id,exams(name,question_time_seconds,auto_submit,essay_question_count,multiple_choice_question_count)').eq('id', guest.roomId).single(),
       supabase.from('game_sessions').select('id,current_player_id,current_turn_number,current_dice_value,status,winner_player_id,exam_started_at,exam_deadline_at,submitted_at').eq('room_id', guest.roomId).single(),

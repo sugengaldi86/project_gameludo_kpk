@@ -1,5 +1,5 @@
--- Menyesuaikan tujuan pembelajaran dengan rumusan pada perangkat ajar.
--- Idempotent: data yang hilang dibuat dan duplikat tidak ikut ditampilkan.
+-- Pulihkan TP pada database yang sudah menjalankan migration lama.
+-- Jalankan file ini di Supabase SQL Editor untuk memperbaiki data production.
 begin;
 
 with objective_seed(title, body, display_order) as (
@@ -20,7 +20,6 @@ where not exists (
     and lower(existing.title) = lower(seed.title)
 );
 
--- Record lama dipertahankan, tetapi hanya empat TP resmi yang dipublikasikan.
 update public.learning_contents
 set is_active = false, updated_at = now()
 where content_type = 'objective';

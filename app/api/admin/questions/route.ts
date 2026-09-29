@@ -11,13 +11,14 @@ export async function GET(request: Request) {
   const difficulty = searchParams.get('difficulty') || ''
   const status = searchParams.get('status') || ''
   const questionType = searchParams.get('questionType') || 'multiple_choice'
+  const compact = searchParams.get('compact') === 'true'
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const pageSize = Math.min(1000, Math.max(5, Number(searchParams.get('pageSize')) || 10))
   const from = (page - 1) * pageSize
 
   let query = supabaseServer()
     .from('questions')
-    .select('*,question_options(*),question_solutions(*)', { count: 'exact' })
+    .select(compact ? 'id,question_code,story,difficulty,question_type,is_active' : '*,question_options(*),question_solutions(*)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, from + pageSize - 1)
 

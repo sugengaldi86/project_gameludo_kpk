@@ -61,6 +61,24 @@ Role yang diterima aplikasi adalah `admin` dan `super_admin`.
 3. Masuk menggunakan email dan password yang dibuat di Firebase.
 4. Pastikan halaman `/admin`, Bank Soal, dan Rekap Nilai dapat dibuka.
 
+### Jika `accounts:signInWithPassword` mengembalikan status 400
+
+Status 400 berasal dari Firebase Authentication, sebelum session admin aplikasi
+dibuat. Periksa hal berikut:
+
+1. Firebase Console → Authentication → Sign-in method → pastikan
+   **Email/Password** aktif.
+2. Firebase Console → Authentication → Users → pastikan email yang digunakan
+   benar-benar tersedia, tidak dinonaktifkan, dan passwordnya benar.
+3. Firebase Console → Authentication → Settings → Authorized domains → tambahkan
+   domain deployment, misalnya `project-gameludo-kpk.vercel.app`.
+4. Pastikan seluruh `NEXT_PUBLIC_FIREBASE_*` di Vercel berasal dari Firebase
+   project yang sama dengan `FIREBASE_ADMIN_PROJECT_ID`.
+5. Setelah mengubah environment variable publik, lakukan deploy ulang karena
+   nilainya dimasukkan ke bundle ketika proses build.
+6. Setelah login Firebase berhasil, UID user tersebut tetap harus terdaftar pada
+   tabel `public.admins` seperti pada langkah 4.
+
 ## 6. Rotasi kredensial yang pernah terekspos
 
 Private key Firebase Admin dan Supabase service-role key yang pernah dibagikan harus dianggap terekspos.

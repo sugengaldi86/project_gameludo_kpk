@@ -10,6 +10,16 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
+const missingFirebaseConfig = Object.entries(firebaseConfig)
+  .filter(([, value]) => !value)
+  .map(([key]) => key)
+
+if (missingFirebaseConfig.length > 0) {
+  throw new Error(
+    `Konfigurasi Firebase client belum lengkap: ${missingFirebaseConfig.join(', ')}`
+  )
+}
+
 // Inisialisasi Firebase (menghindari inisialisasi ganda di mode development)
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp()
 const auth = getAuth(app)

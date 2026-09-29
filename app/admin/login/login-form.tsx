@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  type AuthError,
   inMemoryPersistence,
   setPersistence,
   signInWithEmailAndPassword,
@@ -10,6 +11,31 @@ import {
 import { auth } from '@/lib/firebase-client'
 
 import { Mail, Key } from 'lucide-react'
+
+function getLoginErrorMessage(error: unknown) {
+  const code = (error as Partial<AuthError>)?.code
+
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+      return 'Email atau password salah. Pastikan akun sudah dibuat di Firebase Authentication.'
+    case 'auth/user-disabled':
+      return 'Akun ini dinonaktifkan. Aktifkan kembali akun melalui Firebase Console.'
+    case 'auth/operation-not-allowed':
+      return 'Login Email/Password belum diaktifkan pada Firebase Authentication.'
+    case 'auth/too-many-requests':
+      return 'Terlalu banyak percobaan login. Tunggu beberapa saat lalu coba kembali.'
+    case 'auth/network-request-failed':
+      return 'Firebase tidak dapat dihubungi. Periksa koneksi internet lalu coba kembali.'
+    case 'auth/invalid-api-key':
+    case 'auth/app-not-authorized':
+    case 'auth/unauthorized-domain':
+      return 'Konfigurasi Firebase untuk domain ini belum benar. Periksa Environment Variables dan Authorized domains.'
+    default:
+      return 'Login gagal. Silakan coba kembali atau hubungi administrator aplikasi.'
+  }
+}
 
 export function LoginForm() {
   const router = useRouter()
@@ -37,10 +63,11 @@ export function LoginForm() {
     setError('')
     try {
       await setPersistence(auth, inMemoryPersistence)
-      const credential = await signInWithEmailAndPassword(auth, email, password)
+      const normalizedEmail = email.trim().toLowerCase()
+      const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password)
       await createServerSession(await credential.user.getIdToken())
-    } catch {
-      setError('Email atau password tidak sesuai, atau akun belum terdaftar sebagai admin.')
+    } catch (loginError) {
+      setError(getLoginErrorMessage(loginError))
       setLoading(false)
     }
   }
@@ -56,6 +83,9 @@ export function LoginForm() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           autoComplete="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          disabled={loading}
           required
         />
       </div>
@@ -68,6 +98,7 @@ export function LoginForm() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="current-password"
+          disabled={loading}
           required
         />
       </div>

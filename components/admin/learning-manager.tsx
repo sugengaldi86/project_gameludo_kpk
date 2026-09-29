@@ -22,6 +22,42 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback
 }
 
+function normalizeContent(item: Content): Content {
+  return {
+    ...emptyContent,
+    ...item,
+    content_type: item.content_type === 'objective' ? 'objective' : 'material',
+    title: item.title || '',
+    body: item.body || '',
+    image_url: item.image_url || null,
+    display_order: Number(item.display_order) || 0,
+    show_in_briefing: item.show_in_briefing !== false,
+    is_active: item.is_active !== false,
+  }
+}
+
+function normalizeEssay(item: Essay): Essay {
+  const difficulty = ['mudah', 'sedang', 'hots'].includes(item.difficulty)
+    ? item.difficulty
+    : item.difficulty === 'tiga_bilangan' ? 'hots' : 'sedang'
+  return {
+    ...emptyEssay,
+    ...item,
+    question_code: item.question_code || '',
+    story: item.story || '',
+    answer_know: item.answer_know || '',
+    answer_asked: item.answer_asked || '',
+    answer_plan: item.answer_plan || '',
+    answer_solution: item.answer_solution || '',
+    answer_check: item.answer_check || '',
+    score_weight: Number(item.score_weight) || 10,
+    display_order: Number(item.display_order) || 0,
+    difficulty,
+    operand_count: item.operand_count === 3 ? 3 : 2,
+    is_active: item.is_active !== false,
+  }
+}
+
 export function LearningManager() {
   const [contents, setContents] = useState<Content[]>([])
   const [essays, setEssays] = useState<Essay[]>([])
@@ -35,8 +71,8 @@ export function LearningManager() {
       const response = await fetch('/api/admin/learning', { cache: 'no-store' })
       const result = await readResponse(response)
       if (!response.ok || !result.data) throw new Error(result.error || 'Gagal memuat data')
-      setContents(result.data.contents)
-      setEssays(result.data.essays.map(item => ({ ...emptyEssay, ...item })))
+      setContents(result.data.contents.map(normalizeContent))
+      setEssays(result.data.essays.map(normalizeEssay))
       setError('')
     } catch (loadError) { setError(errorMessage(loadError, 'Gagal memuat data')) }
   }, [])

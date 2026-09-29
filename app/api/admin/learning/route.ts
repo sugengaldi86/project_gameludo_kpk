@@ -50,7 +50,13 @@ export async function POST(request: Request) {
         show_in_briefing: body.content_type === 'material' && body.show_in_briefing !== false,
         is_active: body.is_active !== false, updated_at: new Date().toISOString(),
       }
-      const result = body.id ? await supabase.from('learning_contents').update(payload).eq('id', String(body.id)).select().single() : await supabase.from('learning_contents').insert(payload).select().single()
+      let result = body.id ? await supabase.from('learning_contents').update(payload).eq('id', String(body.id)).select().single() : await supabase.from('learning_contents').insert(payload).select().single()
+      // Kompatibilitas sementara jika migration 20261009 belum diterapkan.
+      if (missingColumn(result.error, 'show_in_briefing')) {
+        const { show_in_briefing: _showInBriefing, ...legacyPayload } = payload
+        void _showInBriefing
+        result = body.id ? await supabase.from('learning_contents').update(legacyPayload).eq('id', String(body.id)).select().single() : await supabase.from('learning_contents').insert(legacyPayload).select().single()
+      }
       if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 })
       return NextResponse.json({ data: result.data }, { status: body.id ? 200 : 201 })
     }

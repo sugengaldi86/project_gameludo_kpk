@@ -23,13 +23,34 @@ const emptyQuestion: QuestionInput = {
 }
 
 function normalizeQuestion(question: AdminQuestion): QuestionInput {
+  const options = Array.isArray(question.question_options) ? question.question_options : []
+  const solutions = Array.isArray(question.question_solutions) ? question.question_solutions : []
+  const difficulty = question.difficulty === 'mudah' || question.difficulty === 'sedang' || question.difficulty === 'hots'
+    ? question.difficulty
+    : question.difficulty === 'tiga_bilangan' ? 'hots' : 'sedang'
+  const correctOption = optionKeys.includes(question.correct_option) ? question.correct_option : 'A'
+  const operandCount = question.operand_count === 3 || question.number_c ? 3 : 2
+
   return {
     ...question,
+    question_code: question.question_code || '',
+    story: question.story || '',
+    difficulty,
+    topic: question.topic || 'kpk',
     known_information: question.known_information || '',
     asked_information: question.asked_information || '',
+    strategy: question.strategy || 'KPK',
+    number_a: Number(question.number_a) || 1,
+    number_b: Number(question.number_b) || 1,
+    number_c: operandCount === 3 ? Number(question.number_c) || null : null,
+    operand_count: operandCount,
+    context_type: question.context_type === 'langsung' ? 'langsung' : 'kontekstual',
+    correct_value: Number(question.correct_value) || 0,
+    correct_option: correctOption,
     final_explanation: question.final_explanation || '',
-    question_options: optionKeys.map((key) => question.question_options.find((option) => option.option_key === key) || { option_key: key, option_text: '', is_correct: key === question.correct_option }),
-    question_solutions: ['multiples', 'prime_factorization'].map((method) => question.question_solutions.find((solution) => solution.method === method) || { method, steps: [], result: question.correct_value }) as QuestionInput['question_solutions'],
+    is_active: question.is_active !== false,
+    question_options: optionKeys.map((key) => options.find((option) => option.option_key === key) || { option_key: key, option_text: '', is_correct: key === correctOption }),
+    question_solutions: ['multiples', 'prime_factorization'].map((method) => solutions.find((solution) => solution.method === method) || { method, steps: [], result: Number(question.correct_value) || 0 }) as QuestionInput['question_solutions'],
   }
 }
 

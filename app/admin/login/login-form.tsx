@@ -15,6 +15,10 @@ import { Mail, Key } from 'lucide-react'
 function getLoginErrorMessage(error: unknown) {
   const code = (error as Partial<AuthError>)?.code
 
+  if (!code && error instanceof Error && error.message) {
+    return error.message
+  }
+
   switch (code) {
     case 'auth/invalid-credential':
     case 'auth/user-not-found':

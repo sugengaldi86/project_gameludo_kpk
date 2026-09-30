@@ -4,6 +4,19 @@ import { getAdminAuth } from '@/lib/firebase-admin'
 import { supabaseServer } from '@/lib/supabase'
 
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 5
+const ADMIN_ROLES = new Set(['admin', 'super_admin'])
+const FIREBASE_UID_PLACEHOLDERS = new Set([
+  'MASUKKAN_UID_FIREBASE_DI_SINI',
+  'GANTI_DENGAN_FIREBASE_UID',
+])
+
+type AdminRecord = {
+  id: string
+  firebase_uid: string
+  email: string
+  name: string
+  role: string
+}
 
 export async function POST(request: Request) {
   try {
@@ -20,15 +33,65 @@ export async function POST(request: Request) {
     const auth = getAdminAuth()
     const decoded = await auth.verifyIdToken(idToken, true)
     const supabase = supabaseServer()
-    const { data: admin, error } = await supabase
+    const { data: uidAdmin, error: uidLookupError } = await supabase
       .from('admins')
       .select('id, firebase_uid, email, name, role')
       .eq('firebase_uid', decoded.uid)
-      .single()
+      .maybeSingle<AdminRecord>()
 
-    if (error || !admin) {
+    if (uidLookupError) {
       return NextResponse.json(
-        { error: 'Akun Firebase ini belum terdaftar sebagai admin Ludo KPK' },
+        { error: 'Data admin tidak dapat diperiksa. Silakan coba kembali.' },
+        { status: 503 }
+      )
+    }
+
+    let admin = uidAdmin
+
+    // Admin boleh dipra-daftarkan berdasarkan email. Pada login pertama, UID
+    // placeholder diganti dengan UID yang sudah diverifikasi oleh Firebase.
+    if (!admin && decoded.email) {
+      const normalizedEmail = decoded.email.trim().toLowerCase()
+      const { data: emailAdmin, error: emailLookupError } = await supabase
+        .from('admins')
+        .select('id, firebase_uid, email, name, role')
+        .eq('email', normalizedEmail)
+        .maybeSingle<AdminRecord>()
+
+      if (emailLookupError) {
+        return NextResponse.json(
+          { error: 'Data admin tidak dapat diperiksa. Silakan coba kembali.' },
+          { status: 503 }
+        )
+      }
+
+      if (
+        emailAdmin &&
+        ADMIN_ROLES.has(emailAdmin.role) &&
+        FIREBASE_UID_PLACEHOLDERS.has(emailAdmin.firebase_uid)
+      ) {
+        const { data: linkedAdmin, error: linkError } = await supabase
+          .from('admins')
+          .update({ firebase_uid: decoded.uid, email: normalizedEmail })
+          .eq('id', emailAdmin.id)
+          .eq('firebase_uid', emailAdmin.firebase_uid)
+          .select('id, firebase_uid, email, name, role')
+          .single<AdminRecord>()
+
+        if (linkError || !linkedAdmin) {
+          return NextResponse.json(
+            { error: 'UID Firebase gagal dihubungkan ke akun admin.' },
+            { status: 409 }
+          )
+        }
+
+        admin = linkedAdmin
+      }
+    }
+
+    if (!admin || !ADMIN_ROLES.has(admin.role)) {
+      return NextResponse.json(
+        { error: 'Akun Firebase ini belum terdaftar sebagai admin Ludo KPK. Pastikan email dan UID Firebase pada tabel admins sudah benar.' },
         { status: 403 }
       )
     }

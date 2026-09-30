@@ -186,7 +186,7 @@ export function LearningManager() {
     {essay && <form ref={essayFormRef} className="admin-question-form" onSubmit={event => save(event, 'essay')}><section className="admin-form-section">
       <div className="admin-form-section-heading"><span>U</span><div><h2>{essay.id ? 'Ubah soal uraian' : 'Tambah soal uraian'}</h2><p>Simpan acuan empat tahap Polya untuk membantu koreksi manual.</p></div></div>
       <div className="admin-form-grid four">
-        <label>Kode<input required value={essay.question_code} onChange={event => setEssay({ ...essay, question_code: event.target.value.toUpperCase() })} placeholder="U-KPK-01" /></label>
+        <label>Kode<input required pattern="(?:U(?:[A-Z0-9]|-){1,19}|ES[0-9]{2,})" title="Gunakan format U-KPK-01 atau ES01" value={essay.question_code} onChange={event => setEssay({ ...essay, question_code: event.target.value.toUpperCase() })} placeholder="U-KPK-01 atau ES01" /></label>
         <label>Kesulitan<select value={essay.difficulty} onChange={event => setEssay({ ...essay, difficulty: event.target.value })}><option value="mudah">Mudah</option><option value="sedang">Sedang</option><option value="hots">HOTS</option></select></label>
         <label>Jumlah bilangan<select value={essay.operand_count} onChange={event => setEssay({ ...essay, operand_count: Number(event.target.value) })}><option value={2}>Dua bilangan</option><option value={3}>Tiga bilangan</option></select></label>
         <label>Urutan<input type="number" value={essay.display_order} onChange={event => setEssay({ ...essay, display_order: Number(event.target.value) })} /></label>

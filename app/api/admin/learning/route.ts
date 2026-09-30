@@ -3,6 +3,7 @@ import { getAdminSession } from '@/lib/admin-session'
 import { supabaseServer } from '@/lib/supabase'
 
 type DatabaseError = { code?: string; message?: string } | null
+const ESSAY_CODE_PATTERN = /^(?:U[A-Z0-9-]{1,19}|ES\d{2,})$/
 
 async function authorized() { return Boolean(await getAdminSession()) }
 function missingColumn(error: DatabaseError, column: string) { return Boolean(error && ['PGRST204', '42703'].includes(error.code || '') && error.message?.includes(column)) }
@@ -64,19 +65,27 @@ export async function POST(request: Request) {
     if (body.entity === 'essay') {
       const questionCode = String(body.question_code || '').trim().toUpperCase()
       const story = String(body.story || '').trim()
-      if (!/^U[A-Z0-9-]{1,19}$/.test(questionCode)) return NextResponse.json({ error: 'Kode uraian harus diawali U, misalnya U-KPK-01' }, { status: 400 })
+      if (!ESSAY_CODE_PATTERN.test(questionCode)) return NextResponse.json({ error: 'Kode uraian harus menggunakan format U-KPK-01 atau ES01' }, { status: 400 })
       if (story.length < 20) return NextResponse.json({ error: 'Teks soal uraian minimal 20 karakter' }, { status: 400 })
       const difficulty = ['mudah', 'sedang', 'hots'].includes(String(body.difficulty)) ? String(body.difficulty) : 'sedang'
-      const payload = {
+      const commonPayload = {
         question_code: questionCode, story, question_type: 'essay', difficulty, topic: 'kpk',
         known_information: String(body.answer_know || '').trim(), asked_information: String(body.answer_asked || '').trim(),
-        strategy: String(body.answer_plan || '').trim() || 'KPK', number_a: 1, number_b: 1, number_c: null,
+        strategy: String(body.answer_plan || '').trim() || 'KPK',
         operand_count: Math.min(3, Math.max(2, Number(body.operand_count) || 2)), context_type: 'kontekstual',
-        correct_value: 1, correct_option: 'A', final_explanation: String(body.answer_check || '').trim(),
+        final_explanation: String(body.answer_check || '').trim(),
         answer_know: String(body.answer_know || '').trim(), answer_asked: String(body.answer_asked || '').trim(),
         answer_plan: String(body.answer_plan || '').trim(), answer_solution: String(body.answer_solution || '').trim(),
         answer_check: String(body.answer_check || '').trim(), score_weight: Math.max(1, Number(body.score_weight) || 10),
         display_order: Number(body.display_order) || 0, is_active: body.is_active !== false,
+      }
+      const payload = body.id ? commonPayload : {
+        ...commonPayload,
+        number_a: 1,
+        number_b: 1,
+        number_c: null,
+        correct_value: 1,
+        correct_option: 'A',
       }
       let result = body.id ? await supabase.from('questions').update(payload).eq('id', String(body.id)).eq('question_type', 'essay').select().single() : await supabase.from('questions').insert(payload).select().single()
       if (missingColumn(result.error, 'answer_plan')) {

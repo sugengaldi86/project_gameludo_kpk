@@ -7,11 +7,12 @@ import { GameNavigation } from '@/components/game-navigation'
 import { DicePanel } from '@/components/dice-panel'
 import { QuestionModal } from '@/components/question-modal'
 import { SetupScreen } from '@/components/setup-screen'
+import { WelcomeScreen } from '@/components/welcome-screen'
 import { type NavItem, type Player, type Question } from '@/lib/game-data'
 import { initializePawns, PawnState } from '@/lib/pawn-logic'
 
 export default function Page() {
-  const [gameState, setGameState] = useState<'setup' | 'playing'>('setup')
+  const [gameState, setGameState] = useState<'welcome' | 'setup' | 'playing'>('welcome')
   const [gamePlayers, setGamePlayers] = useState<Player[]>([])
   const [learningGoal, setLearningGoal] = useState('')
   const [roomCode, setRoomCode] = useState('')
@@ -419,6 +420,10 @@ export default function Page() {
     oscillator.start()
     oscillator.stop(context.currentTime + 0.12)
     oscillator.addEventListener('ended', () => void context.close(), { once: true })
+  }
+
+  if (gameState === 'welcome') {
+    return <WelcomeScreen onPlay={() => setGameState('setup')} />
   }
 
   if (gameState === 'setup') {

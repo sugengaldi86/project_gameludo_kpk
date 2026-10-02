@@ -1,21 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Bell, BookOpen, ChevronRight, CircleHelp, Dices, Gem, LogOut, Medal, MoreHorizontal, Settings, Shield, Sparkles, Star, Trophy, Volume2, VolumeX, X, Zap } from 'lucide-react'
 import { GameBoard } from '@/components/game-board'
 import { GameNavigation } from '@/components/game-navigation'
 import { DicePanel } from '@/components/dice-panel'
 import { QuestionModal } from '@/components/question-modal'
 import { SetupScreen } from '@/components/setup-screen'
-import { WelcomeScreen } from '@/components/welcome-screen'
-import { EssayQuestionModal, type EssayAnswer } from '@/components/essay-question-modal'
 import { type NavItem, type Player, type Question } from '@/lib/game-data'
 import { initializePawns, PawnState } from '@/lib/pawn-logic'
 
 export default function Page() {
-  const router = useRouter()
-  const [gameState, setGameState] = useState<'welcome' | 'setup' | 'playing'>('welcome')
+  const [gameState, setGameState] = useState<'setup' | 'playing'>('setup')
   const [gamePlayers, setGamePlayers] = useState<Player[]>([])
   const [learningGoal, setLearningGoal] = useState('')
   const [roomCode, setRoomCode] = useState('')
@@ -25,12 +21,6 @@ export default function Page() {
   const [endTime, setEndTime] = useState<string | null>(null)
   const [questionTimeSeconds, setQuestionTimeSeconds] = useState<number | null>(null)
   const [winnerDismissed, setWinnerDismissed] = useState(false)
-  const [essayProgress, setEssayProgress] = useState(0)
-  const [choiceProgress, setChoiceProgress] = useState(0)
-  const [essayTarget, setEssayTarget] = useState(5)
-  const [choiceTarget, setChoiceTarget] = useState(10)
-  const [questionProgressLabel, setQuestionProgressLabel] = useState('1/5')
-  const [savingEssay, setSavingEssay] = useState(false)
 
   const [pawns, setPawns] = useState<PawnState[]>(initializePawns())
   const [canMovePawn, setCanMovePawn] = useState(false)
@@ -57,15 +47,8 @@ export default function Page() {
   const [savedRoomCode, setSavedRoomCode] = useState<string | null>(null)
   const [restoringSession, setRestoringSession] = useState(false)
   const [recoveryError, setRecoveryError] = useState('')
-  const [scoreAwarded, setScoreAwarded] = useState<number>(0)
-  const [xpAwarded, setXpAwarded] = useState<number>(0)
   // Ref untuk mencegah pengiriman jawaban ganda secara bersamaan
   const isSubmittingAnswer = useRef(false)
-  // State React tidak berubah seketika. Ref ini mengunci klik pion pada event
-  // pertama agar tap/click berulang tidak mengirim beberapa request paralel.
-  const isMovingPawn = useRef(false)
-  const isRollingDice = useRef(false)
-  const isSavingEssay = useRef(false)
 
   async function refreshGame(code: string): Promise<Player[]> {
     const response = await fetch(`/api/game/${code}`, { cache: 'no-store' })
@@ -77,9 +60,9 @@ export default function Page() {
       if (!turnResponse.ok) throw new Error(turnResult.error || 'Giliran tertunda gagal dipulihkan')
       return refreshGame(code)
     }
-    const players: Player[] = result.players.map((player: { player_id: string; display_name: string; color: Player['color']; score: number; xp_earned: number; correct_answers: number; wrong_answers:number; streak: number; profiles: { level: number; total_xp: number; total_score: number } | Array<{ level: number; total_xp: number; total_score: number }> | null }) => {
+    const players: Player[] = result.players.map((player: { player_id: string; display_name: string; color: Player['color']; score: number; xp_earned: number; correct_answers: number; streak: number; profiles: { level: number; total_xp: number; total_score: number } | Array<{ level: number; total_xp: number; total_score: number }> | null }) => {
       const profile = Array.isArray(player.profiles) ? player.profiles[0] : player.profiles
-      return { id: player.player_id, name: player.display_name, color: player.color, score: player.score, xp: player.xp_earned, correctAnswers: player.correct_answers, wrongAnswers: player.wrong_answers,
+      return { id: player.player_id, name: player.display_name, color: player.color, score: player.score, xp: player.xp_earned,
         totalXp: profile?.total_xp || 0, totalScore: profile?.total_score || 0,
         level: profile?.level || 1, avatar: player.display_name.charAt(0).toUpperCase(), active: player.player_id === result.session.current_player_id }
     })
@@ -91,10 +74,6 @@ export default function Page() {
     setEndTime(result.room.end_time || null)
     const roomExam = Array.isArray(result.room.exams) ? result.room.exams[0] : result.room.exams
     setQuestionTimeSeconds(roomExam?.question_time_seconds || null)
-    setEssayProgress(result.progress?.essay || 0)
-    setChoiceProgress(result.progress?.multipleChoice || 0)
-    setEssayTarget(result.targets?.essay ?? 5)
-    setChoiceTarget(result.targets?.multipleChoice ?? 10)
     const activeDatabasePlayer = result.players.find((player: { player_id: string }) => player.player_id === result.session.current_player_id)
     setStreak(activeDatabasePlayer?.streak || 0)
     setCorrectAnswers(activeDatabasePlayer?.correct_answers || 0)
@@ -218,8 +197,7 @@ export default function Page() {
   })
 
   async function rollDice() {
-    if (rolling || isRollingDice.current || questionOpen || canMovePawn || sessionStatus !== 'TURN_START') return
-    isRollingDice.current = true
+    if (rolling || questionOpen || canMovePawn || sessionStatus !== 'TURN_START') return
     setRolling(true)
     setQuestionOpen(false)
     setSelectedAnswer(null)
@@ -241,7 +219,6 @@ export default function Page() {
           setDice(result.diceValue)
           playFeedbackSound(440)
           setRolling(false)
-          isRollingDice.current = false
           setSessionStatus(result.nextStatus)
           
           if (result.canMovePawn) {
@@ -260,7 +237,7 @@ export default function Page() {
               setTimeout(() => refreshGame(roomCode), 1000)
             }
           }
-        }).catch((error) => { isRollingDice.current = false; setRolling(false); setNotice(error instanceof Error ? error.message : 'Dadu gagal dilempar') })
+        }).catch((error) => { setRolling(false); setNotice(error instanceof Error ? error.message : 'Dadu gagal dilempar') })
       }
     }, 100)
   }
@@ -269,11 +246,25 @@ export default function Page() {
     // Guard: jika sedang memproses jawaban atau sudah ada jawaban, abaikan
     if (!currentQuestion || selectedAnswer || isSubmittingAnswer.current) return
     isSubmittingAnswer.current = true
+    const isEssayQuestion = currentQuestion.type === 'essay'
+      || currentQuestion.type === 'uraian'
+      || currentQuestion.answerType === 'essay'
+      || currentQuestion.answerType === 'uraian'
+      || currentQuestion.isEssay
+      || (Array.isArray(currentQuestion.options) && currentQuestion.options.length === 0)
     const submittedAnswer = answer || '__TIMEOUT__'
     setSelectedAnswer(submittedAnswer)
     try {
-      const response = await fetch(`/api/game/${roomCode}/answer`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId: currentQuestion.id, selectedOption: submittedAnswer }) })
+      const response = await fetch(`/api/game/${roomCode}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          questionId: currentQuestion.id,
+          selectedOption: submittedAnswer,
+          answerText: isEssayQuestion && typeof answer === 'string' ? answer : undefined,
+          questionType: isEssayQuestion ? 'essay' : 'multiple_choice',
+        }),
+      })
       const result = await response.json()
 
       // 410 = waktu game habis (bukan race condition)
@@ -283,29 +274,40 @@ export default function Page() {
         return
       }
 
-      // Jika jawaban sudah diproses / race condition → abaikan senyap
       if (result.alreadyAnswered) {
-        await refreshGame(roomCode)
+        setIsAnswerCorrect(null)
+        setCorrectOption(null)
+        setExplanation(null)
+        setFeedback('Jawaban berhasil disimpan. Nilai akan divalidasi oleh guru.')
+        setNotice('Jawaban sudah tersimpan. Tunggu validasi guru untuk skor akhir.')
+        setAnswerTurnAdvanced(true)
+        setSessionStatus('TURN_END')
         return
       }
-      if (!response.ok) throw new Error(result.error || 'Jawaban gagal disimpan')
+      if (!response.ok) {
+        throw new Error(result.error || 'Jawaban gagal disimpan. Silakan coba lagi.')
+      }
 
-      setCorrectOption(result.correctOption)
+      setCorrectOption(result.correctOption ?? null)
       setIsAnswerCorrect(result.isCorrect)
       setExplanation(result.explanation)
       setAnswerTurnAdvanced(Boolean(result.turnAdvanced))
+
+      if (isEssayQuestion) {
+        setFeedback(result.feedback || 'Jawaban berhasil disimpan. Nilai akan divalidasi oleh guru.')
+        setNotice('Jawaban disimpan. Tunggu validasi guru untuk skor akhir.')
+        setSessionStatus('TURN_END')
+        return
+      }
+
       if (result.isCorrect) {
         playFeedbackSound(660)
-        setScoreAwarded(result.scoreAwarded || 10)
-        setXpAwarded(result.xpAwarded || 5)
         setFeedback(`Benar! Kamu mendapatkan ${result.scoreAwarded} poin.`)
         setCorrectAnswers((value) => value + 1)
         setStreak((value) => value + 1)
         setNotice('Jawaban benar! Giliran pemain selanjutnya.')
       } else {
         playFeedbackSound(220)
-        setScoreAwarded(0)
-        setXpAwarded(0)
         setFeedback('Belum tepat. Kamu tidak mendapatkan poin.')
         setStreak(0)
         setWrongAnswers((value) => value + 1)
@@ -319,26 +321,19 @@ export default function Page() {
     } finally {
       isSubmittingAnswer.current = false
     }
-  }, [currentQuestion, selectedAnswer, roomCode, muted])
+  }, [currentQuestion, selectedAnswer, roomCode])
 
 
   async function handlePawnClick(pawnId: string) {
-    if (!canMovePawn || isMovingPawn.current) return
-    isMovingPawn.current = true
-    setCanMovePawn(false)
+    if (!canMovePawn) return
     try {
       const response = await fetch(`/api/game/${roomCode}/pawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pawnId }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Pion tidak dapat digerakkan')
-      if (result.alreadyMoved) {
-        await refreshGame(roomCode)
-        return
-      }
+      setCanMovePawn(false)
       setSessionStatus(result.nextStatus)
       if (result.question) {
         setCurrentQuestion(result.question)
-        if (result.targets) { setEssayTarget(result.targets.essay); setChoiceTarget(result.targets.multipleChoice) }
-        setQuestionProgressLabel(result.progress || (result.question.type === 'essay' ? `${essayProgress + 1}/${essayTarget}` : `${choiceProgress + 1}/${choiceTarget}`))
         setNotice('Pion mendarat! Jawab soal untuk mendapatkan poin.')
         window.setTimeout(() => setQuestionOpen(true), 350)
       } else if (result.finished) {
@@ -347,39 +342,6 @@ export default function Page() {
       refreshGame(roomCode)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Pion gagal digerakkan. Coba lagi.')
-      await refreshGame(roomCode).catch(() => setCanMovePawn(true))
-    } finally {
-      isMovingPawn.current = false
-    }
-  }
-
-  async function answerEssay(answer: EssayAnswer) {
-    if (!currentQuestion || savingEssay || isSavingEssay.current) return
-    isSavingEssay.current = true
-    setSavingEssay(true)
-    try {
-      const response = await fetch(`/api/game/${roomCode}/essay-answer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questionId: currentQuestion.id, ...answer }) })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Jawaban uraian gagal disimpan')
-      if (!response.ok) throw new Error(result.error || 'Jawaban uraian gagal disimpan')
-      
-      if (result.explanation) {
-        setExplanation(result.explanation)
-        setAnswerTurnAdvanced(true)
-        setEssayProgress(result.essayCount || essayProgress + 1)
-        setNotice(result.gameComplete ? 'Seluruh soal selesai!' : 'Jawaban uraian tersimpan.')
-      } else {
-        setQuestionOpen(false)
-        setCurrentQuestion(null)
-        setEssayProgress(result.essayCount || essayProgress + 1)
-        setNotice(result.gameComplete ? 'Seluruh soal selesai!' : 'Jawaban uraian tersimpan. Giliran berpindah.')
-        await refreshGame(roomCode)
-      }
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Jawaban uraian gagal disimpan')
-    } finally {
-      isSavingEssay.current = false
-      setSavingEssay(false)
     }
   }
 
@@ -405,8 +367,6 @@ export default function Page() {
     setCurrentQuestion(null)
     setCorrectOption(null)
     setExplanation(null)
-    setScoreAwarded(0)
-    setXpAwarded(0)
   }
 
   async function leaveGame() {
@@ -418,7 +378,7 @@ export default function Page() {
       const result = await response.json()
       if (!response.ok && response.status !== 401) throw new Error(result.error || 'Game gagal diakhiri')
       window.localStorage.removeItem('ludo-kpk-session')
-      router.replace('/')
+      window.location.assign('/')
     } catch (error) {
       setLeaving(false)
       setNotice(error instanceof Error ? error.message : 'Game gagal diakhiri')
@@ -461,9 +421,7 @@ export default function Page() {
     oscillator.addEventListener('ended', () => void context.close(), { once: true })
   }
 
-  if (gameState === 'welcome' && !savedRoomCode) return <WelcomeScreen onPlay={() => setGameState('setup')} />
-
-  if (gameState === 'setup' || gameState === 'welcome') {
+  if (gameState === 'setup') {
     return <>
       <SetupScreen onStart={handleStartGame} />
       {savedRoomCode && <div className="question-overlay" role="dialog" aria-modal="true" aria-labelledby="recovery-title">
@@ -483,9 +441,7 @@ export default function Page() {
   }
 
   const activePlayer = gamePlayers.find((player) => player.active) || gamePlayers[0]
-  const rankedPlayers = [...gamePlayers].sort((first, second) => sessionStatus === 'GAME_OVER'
-    ? (second.correctAnswers || 0) - (first.correctAnswers || 0)
-    : second.score - first.score)
+  const rankedPlayers = [...gamePlayers].sort((first, second) => second.score - first.score)
   const winner = gamePlayers.find((player) => player.id === winnerId)
   const activeRank = activePlayer ? rankedPlayers.findIndex((player) => player.id === activePlayer.id) + 1 : 0
   const activeAccuracy = correctAnswers + wrongAnswers
@@ -497,7 +453,7 @@ export default function Page() {
       <header className="topbar">
         <div className="brand-lockup"><div className="brand-mark"><Dices /></div><div><p className="brand-name">LUDO <span>KPK</span></p><p className="brand-subtitle">Arena belajar matematika</p></div></div>
         <div className="room-pill"><span className="live-dot" /> ROOM <strong>{roomCode}</strong><button aria-label="Salin kode room" onClick={copyRoom}>{copied ? 'Tersalin' : <MoreHorizontal />}</button></div>
-        {endTime && sessionStatus !== 'GAME_OVER' && (
+        {endTime && (
           <div className={`exam-timer-pill${timerSeconds <= 60 ? ' critical' : timerSeconds <= 300 ? ' danger' : timerSeconds <= 600 ? ' warning' : ''}`}>
             ⏱ {timeLeft}
           </div>
@@ -516,7 +472,7 @@ export default function Page() {
         </aside>
 
         <section className="board-section">
-          <div className="board-heading"><div><p className="eyebrow">MODE KLASIK · GILIRAN {turnNumber}</p><h1>{learningGoal || 'Waktunya menaklukkan KPK!'}</h1><div className="phase-progress"><span className={essayProgress < essayTarget ? 'active' : 'done'}>Uraian {essayProgress}/{essayTarget}</span><i /><span className={essayProgress >= essayTarget ? 'active' : ''}>Pilihan Ganda {choiceProgress}/{choiceTarget}</span></div></div><div className="streak-badge"><Sparkles /> <span>Streak <strong>{streak}</strong></span></div></div>
+          <div className="board-heading"><div><p className="eyebrow">MODE KLASIK · GILIRAN {turnNumber}</p><h1>{learningGoal || 'Waktunya menaklukkan KPK!'}</h1></div><div className="streak-badge"><Sparkles /> <span>Streak <strong>{streak}</strong></span></div></div>
           <div className="board-stage">
             <GameBoard
               dice={dice}
@@ -532,7 +488,7 @@ export default function Page() {
         </section>
 
         <aside className="right-panel">
-          <div className="panel-card leaderboard-card"><div className="card-heading"><div><p className="eyebrow">{sessionStatus==='GAME_OVER'?'PERINGKAT SEMENTARA':'PERINGKAT ROOM'}</p><h2>Leaderboard</h2></div><Trophy className="heading-icon" /></div><div className="leaderboard-list">{rankedPlayers.map((player, index) => <div className="leader-row" key={player.name}><span className={`rank rank-${index + 1}`}>{index + 1}</span><div className={`mini-avatar avatar-${player.color}`}>{player.avatar}</div><strong>{player.name}</strong><span className="leader-score">{sessionStatus === 'GAME_OVER' ? `${Math.min((player.correctAnswers||0)*5,50)}/50` : `${player.score} pts`}</span></div>)}</div><button className="text-button" onClick={() => openDialog('Rank')}>Lihat semua peringkat <ChevronRight /></button></div>
+          <div className="panel-card leaderboard-card"><div className="card-heading"><div><p className="eyebrow">PERINGKAT ROOM</p><h2>Leaderboard</h2></div><Trophy className="heading-icon" /></div><div className="leaderboard-list">{rankedPlayers.map((player, index) => <div className="leader-row" key={player.name}><span className={`rank rank-${index + 1}`}>{index + 1}</span><div className={`mini-avatar avatar-${player.color}`}>{player.avatar}</div><strong>{player.name}</strong><span className="leader-score">{player.score}<small> pts</small></span></div>)}</div><button className="text-button" onClick={() => openDialog('Rank')}>Lihat semua peringkat <ChevronRight /></button></div>
           <div className="panel-card mission-card"><div className="card-heading"><div><p className="eyebrow">ROOM INI</p><h2>Target belajar</h2></div><Gem className="heading-icon gold" /></div><div className="mission-item"><div className="mission-icon purple"><Star /></div><div className="mission-copy"><strong>Jawab 5 soal benar</strong><div className="mission-progress"><span style={{ width: `${Math.min(correctAnswers / 5 * 100, 100)}%` }} /></div><small>{Math.min(correctAnswers, 5)} / 5 selesai</small></div><span className={`reward ${correctAnswers >= 5 ? 'done' : ''}`}>{correctAnswers >= 5 ? 'Tercapai' : 'Berjalan'}</span></div><div className="mission-item"><div className="mission-icon orange"><Medal /></div><div className="mission-copy"><strong>Streak 3 jawaban</strong><div className="mission-progress"><span style={{ width: `${Math.min(streak / 3 * 100, 100)}%` }} /></div><small>{streak >= 3 ? 'Tercapai!' : `${streak} / 3`}</small></div><span className={`reward ${streak >= 3 ? 'done' : ''}`}>{streak >= 3 ? 'Selesai' : 'Berjalan'}</span></div></div>
           <div className="coach-card"><div className="coach-orb"><BookOpen /></div><div><strong>Progres KPK</strong><p>Akurasi giliran aktif: {correctAnswers + wrongAnswers ? Math.round(correctAnswers / (correctAnswers + wrongAnswers) * 100) : 0}%.</p></div></div>
         </aside>
@@ -544,14 +500,26 @@ export default function Page() {
       
       {(sessionStatus === 'GAME_OVER' || winnerId) && !winnerDismissed && (
         <div className="question-overlay" role="dialog" aria-modal="true" aria-labelledby="winner-title">
-          <div className="question-modal feature-modal provisional-result">
-            <div className="provisional-result-icon"><Trophy /></div>
-            <p className="eyebrow">WAKTU PERMAINAN SELESAI</p>
-            <h2 id="winner-title">Peringkat Sementara</h2>
-            <p className="provisional-result-copy">Peringkat ini hanya berdasarkan nilai pilihan ganda. Jawaban uraian sudah dikirim dan menunggu penilaian guru.</p>
-            <div className="provisional-ranking">{rankedPlayers.map((player,index)=><div key={player.id||player.name}><span>{index+1}</span><div className={`mini-avatar avatar-${player.color}`}>{player.avatar}</div><strong>{player.name}</strong><b>{Math.min((player.correctAnswers||0)*5,50)}/50</b></div>)}</div>
-            <div className="provisional-score-note"><span>Nilai uraian</span><strong>Menunggu penilaian guru</strong><span>Nilai akhir</span><strong>Belum tersedia</strong></div>
-            <div className="provisional-actions"><button className="admin-secondary-button" onClick={()=>setWinnerDismissed(true)}>Lihat papan permainan</button><button className="roll-button dialog-action" onClick={leaveGame} disabled={leaving}>{leaving?'Keluar...':'Kembali ke Halaman Utama'}</button></div>
+          <div className="question-modal feature-modal feature-winner" style={{ textAlign: 'center', padding: '2.5rem' }}>
+            <div className="feature-hero rank-hero" style={{ margin: '0 auto 1.5rem', width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+              <Trophy size={40} />
+            </div>
+            <h2 id="winner-title" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Selamat!</h2>
+            <p style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
+              <strong>{winner?.name || 'Pemain'}</strong> telah memenangkan permainan!
+            </p>
+            <div style={{ background: 'var(--surface-color, #f8fafc)', padding: '1rem', borderRadius: '1rem', marginBottom: '2rem' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Skor Akhir</span>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--primary-color, #2563eb)' }}>{winner?.score || 0}</div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
+              <button className="roll-button dialog-action" onClick={() => setWinnerDismissed(true)} style={{ width: '100%', background: 'var(--surface-color, #f8fafc)', color: 'var(--text-color, #0f172a)' }}>
+                Tutup & Lihat Papan
+              </button>
+              <button className="roll-button dialog-action" onClick={leaveGame} disabled={leaving} style={{ width: '100%' }}>
+                {leaving ? 'Keluar...' : 'Selesai & Keluar Game'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -560,11 +528,11 @@ export default function Page() {
         <div className="question-overlay" role="dialog" aria-modal="true" aria-labelledby="feature-title">
           <div className={`question-modal feature-modal feature-${activeDialog.toLowerCase().replaceAll(' ', '-')}`}>
             <div className="question-topline"><span className="eyebrow">LUDO KPK · PANEL PEMAIN</span><button className="close-question" onClick={closeDialog} aria-label="Tutup"><X /></button></div>
-            {activeDialog === 'Rank' && <><div className="feature-hero rank-hero"><Trophy /><div><strong>{sessionStatus==='GAME_OVER'?'Peringkat sementara':'Peringkat room'}</strong><small>{sessionStatus==='GAME_OVER'?'Berdasarkan nilai pilihan ganda.':'Diurutkan dari skor permainan saat ini.'}</small></div></div><h2 id="feature-title">Leaderboard Room</h2><div className="feature-stat-grid"><div><strong>{sessionStatus === 'GAME_OVER' ? `${Math.min((activePlayer?.correctAnswers||0)*5,50)}/50` : activePlayer?.score || 0}</strong><small>{sessionStatus==='GAME_OVER'?'Nilai PG':'Poin pemain aktif'}</small></div><div><strong>{turnNumber}</strong><small>Nomor giliran</small></div><div><strong>#{activeRank || '-'}</strong><small>Peringkat room</small></div></div><div className="feature-ranking">{rankedPlayers.map((player, index) => <div className="feature-rank-row" key={player.id || player.name}><span>{index + 1}</span><div className={`mini-avatar avatar-${player.color}`}>{player.avatar}</div><strong>{player.name}</strong><b>{sessionStatus === 'GAME_OVER' ? `${Math.min((player.correctAnswers||0)*5,50)}/50` : `${player.score} pts`}</b></div>)}</div></>}
+            {activeDialog === 'Rank' && <><div className="feature-hero rank-hero"><Trophy /><div><strong>Peringkat room</strong><small>Diurutkan dari skor permainan saat ini.</small></div></div><h2 id="feature-title">Leaderboard Room</h2><div className="feature-stat-grid"><div><strong>{activePlayer?.score || 0}</strong><small>Poin pemain aktif</small></div><div><strong>{turnNumber}</strong><small>Nomor giliran</small></div><div><strong>#{activeRank || '-'}</strong><small>Peringkat room</small></div></div><div className="feature-ranking">{rankedPlayers.map((player, index) => <div className="feature-rank-row" key={player.id || player.name}><span>{index + 1}</span><div className={`mini-avatar avatar-${player.color}`}>{player.avatar}</div><strong>{player.name}</strong><b>{player.score} pts</b></div>)}</div></>}
             {activeDialog === 'Misi' && <><div className="feature-hero mission-hero"><Gem /><div><strong>Target room</strong><small>Progres pemain yang sedang mendapat giliran.</small></div></div><h2 id="feature-title">Target Permainan</h2><div className="detail-mission"><div className="detail-mission-top"><Star /><strong>Jawab 5 soal benar</strong><b>{Math.min(correctAnswers, 5)}/5</b></div><div className="wide-progress"><span style={{ width: `${Math.min(correctAnswers / 5 * 100, 100)}%` }} /></div><small>Target latihan; tidak memberikan hadiah tambahan.</small></div><div className="detail-mission"><div className="detail-mission-top"><Medal /><strong>Streak 3 jawaban</strong><b>{Math.min(streak, 3)}/3</b></div><div className={`wide-progress ${streak >= 3 ? 'complete' : ''}`}><span style={{ width: `${Math.min(streak / 3 * 100, 100)}%` }} /></div><small>{streak >= 3 ? 'Target tercapai.' : 'Pertahankan jawaban benar secara beruntun.'}</small></div></>}
-            {activeDialog === 'Belajar' && <><div className="feature-hero learn-hero"><BookOpen /><div><strong>Materi KPK</strong><small>Konten pembelajaran dikelola oleh admin melalui Supabase.</small></div></div><h2 id="feature-title">Pusat Belajar</h2><p className="feature-intro">Buka materi pembelajaran terbaru yang sudah dipublikasikan oleh admin.</p><button className="roll-button dialog-action" onClick={() => router.push('/materi')}>Buka materi pembelajaran</button></>}
+            {activeDialog === 'Belajar' && <><div className="feature-hero learn-hero"><BookOpen /><div><strong>Mini lesson KPK</strong><small>Materi referensi sebelum kembali bermain.</small></div></div><h2 id="feature-title">Pusat Belajar</h2><p className="feature-intro">KPK adalah kelipatan terkecil yang sama dari dua bilangan.</p><div className="lesson-card"><span>Contoh</span><strong>Kelipatan 3: 3, 6, 9, <em>12</em></strong><strong>Kelipatan 4: 4, 8, <em>12</em></strong><small>Jadi, KPK dari 3 dan 4 adalah 12.</small></div></>}
             {activeDialog === 'Profil' && <><div className="profile-hero"><div className="profile-big-avatar">{activePlayer?.avatar || 'P'}</div><div><h2 id="feature-title">{activePlayer?.name || 'Pemain'}</h2><p>Level {activePlayer?.level || 1} · Pemain aktif</p></div></div><div className="profile-xp"><div><span>XP saat ini</span><strong>{activePlayer?.totalXp || 0} XP</strong></div><div className="wide-progress"><span style={{ width: `${Math.min((activePlayer?.totalXp || 0) % 100, 100)}%` }} /></div></div><div className="profile-stats"><div><strong>{streak}</strong><small>Streak saat ini</small></div><div><strong>{activeAccuracy}%</strong><small>Akurasi</small></div><div><strong>{correctAnswers + wrongAnswers}</strong><small>Soal dijawab</small></div></div></>}
-            {activeDialog === 'Cara bermain' && <><div className="feature-hero how-hero"><CircleHelp /><div><strong>Game lokal satu perangkat</strong><small>Pemain bergantian menggunakan perangkat yang sama.</small></div></div><h2 id="feature-title">Cara Bermain</h2><div className="how-steps"><div><b>01</b><span><strong>Lempar dadu</strong><small>Tekan tombol dadu pada giliranmu.</small></span></div><div><b>02</b><span><strong>Gerakkan pion</strong><small>Pilih pion yang dapat bergerak, lalu jawab soal KPK.</small></span></div><div><b>03</b><span><strong>Capai garis akhir</strong><small>Bawa pion ke pusat atau kumpulkan skor tertinggi sampai waktu habis.</small></span></div></div></>}
+            {activeDialog === 'Cara bermain' && <><div className="feature-hero how-hero"><CircleHelp /><div><strong>Game lokal satu perangkat</strong><small>Pemain bergantian menggunakan perangkat yang sama.</small></div></div><h2 id="feature-title">Cara Bermain</h2><div className="how-steps"><div><b>01</b><span><strong>Lempar dadu</strong><small>Tekan tombol dadu pada giliranmu.</small></span></div><div><b>02</b><span><strong>Gerakkan pion</strong><small>Pilih pion yang dapat bergerak, lalu jawab soal KPK.</small></span></div><div><b>03</b><span><strong>Capai garis akhir</strong><small>Bawa empat pion ke pusat atau kumpulkan skor tertinggi sampai waktu habis.</small></span></div></div></>}
             {activeDialog === 'Notifikasi' && <><div className="feature-hero notification-hero"><Bell /><div><strong>Status permainan</strong><small>Informasi terbaru dari room aktif.</small></div></div><h2 id="feature-title">Notifikasi</h2><div className="notification-item"><Sparkles /><div><strong>Giliran {activePlayer?.name || 'pemain'}</strong><small>{notice}</small></div><span>Sekarang</span></div><div className="notification-item"><Trophy /><div><strong>Room {roomCode}</strong><small>{gamePlayers.length} pemain · giliran {turnNumber} · sisa {timeLeft}</small></div><span>Aktif</span></div></>}
             {activeDialog === 'Pengaturan' && <><div className="feature-hero settings-hero"><Settings /><div><strong>Pengaturan game</strong><small>Preferensi berlaku selama halaman ini terbuka.</small></div></div><h2 id="feature-title">Pengaturan</h2><div className="settings-list"><button onClick={() => setMuted((value) => !value)}><span><Volume2 /><strong>Suara umpan balik</strong></span><b>{muted ? 'Mati' : 'Nyala'}</b></button></div></>}
             <button className="roll-button dialog-action" onClick={closeDialog}>Kembali ke game</button>
@@ -572,8 +540,7 @@ export default function Page() {
         </div>
       )}
       <QuestionModal
-        key={currentQuestion?.id || 'no-question'}
-        open={questionOpen && currentQuestion?.type !== 'essay'}
+        open={questionOpen}
         dice={dice}
         selectedAnswer={selectedAnswer}
         feedback={feedback}
@@ -582,23 +549,9 @@ export default function Page() {
         explanation={explanation}
         question={currentQuestion}
         questionTimeSeconds={questionTimeSeconds}
-        scoreAwarded={scoreAwarded}
-        xpAwarded={xpAwarded}
-        currentScore={(gamePlayers.find((p) => p.active) || gamePlayers[0])?.score ?? 0}
-        streak={streak}
         onClose={() => setQuestionOpen(false)}
         onLeave={leaveGame}
         onAnswer={answerQuestion}
-        onContinue={continueAfterAnswer}
-      />
-      <EssayQuestionModal 
-        open={questionOpen && currentQuestion?.type === 'essay'} 
-        question={currentQuestion} 
-        progress={questionProgressLabel} 
-        saving={savingEssay} 
-        explanation={explanation}
-        onSubmit={answerEssay} 
-        onLeave={leaveGame} 
         onContinue={continueAfterAnswer}
       />
       <div className="move-counter"><span>Giliran</span><strong>{turnNumber}</strong></div>

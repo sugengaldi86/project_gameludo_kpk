@@ -24,7 +24,7 @@ export async function POST(_request: Request, { params }: Context) {
     if (rollError || !roll) return NextResponse.json({ error: rollError?.message || 'Dadu gagal dilempar' }, { status: 409 })
     let result = roll
     if (!result.question && result.questionId) {
-      const { data: qData } = await supabase.from('questions').select('*, question_options(*)').eq('id', result.questionId).single()
+      const { data: qData } = await supabase.from('questions').select('*, question_type, question_options(*)').eq('id', result.questionId).single()
       if (qData) {
         const options = (qData.question_options as Array<{ option_key: string; option_text: string }> | null) || []
         result = {
@@ -34,6 +34,7 @@ export async function POST(_request: Request, { params }: Context) {
             code: qData.question_code,
             text: qData.story,
             difficulty: qData.difficulty,
+            type: qData.question_type || (options.length === 0 ? 'essay' : 'multiple_choice'),
             options: options
               .map((option) => ({ key: option.option_key, text: option.option_text }))
               .sort((first, second) => first.key.localeCompare(second.key))

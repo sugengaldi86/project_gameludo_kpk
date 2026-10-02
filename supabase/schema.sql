@@ -110,6 +110,7 @@ CREATE TABLE questions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   question_code TEXT UNIQUE NOT NULL,
   story TEXT NOT NULL,
+  question_type TEXT NOT NULL DEFAULT 'multiple_choice', -- multiple_choice, essay
   difficulty TEXT DEFAULT 'sedang', -- mudah, sedang, kontekstual, tiga_bilangan
   topic TEXT DEFAULT 'kpk',
   known_information TEXT,
@@ -119,7 +120,7 @@ CREATE TABLE questions (
   number_b INTEGER NOT NULL,
   number_c INTEGER,
   correct_value INTEGER NOT NULL,
-  correct_option TEXT NOT NULL, -- A, B, C, D
+  correct_option TEXT DEFAULT 'A', -- A, B, C, D; untuk soal essay bisa tetap diisi default
   final_explanation TEXT,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -170,7 +171,8 @@ CREATE TABLE player_answers (
   is_correct BOOLEAN NOT NULL,
   score_awarded INTEGER DEFAULT 0,
   xp_awarded INTEGER DEFAULT 0,
-  answered_at TIMESTAMPTZ DEFAULT NOW()
+  answered_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT player_answers_selected_option_check CHECK (selected_option IS NULL OR length(trim(selected_option)) > 0)
 );
 
 -- ==========================================

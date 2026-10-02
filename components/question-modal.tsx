@@ -11,17 +11,13 @@ type QuestionModalProps = {
   feedback: string
   correctOption?: string | null
   isCorrect?: boolean | null
-  explanation?: { knownInformation?: string; askedInformation?: string; strategy?: string; finalExplanation?: string; solutions?: Array<{ method: string; steps: string[]; result: number }> } | null
+  explanation?: { knownInformation?: string; askedInformation?: string; strategy?: string; finalExplanation?: string; solutions?: Array<{ method: string; steps?: string[] | { steps?: string[] }; result: number }> } | null
   question: Question | null
   questionTimeSeconds?: number | null
   onClose: () => void
   onLeave?: () => void
-  onAnswer: (answer: string | null) => void
+  onAnswer: (answer: string | null) => void | Promise<void>
   onContinue: () => void
-  scoreAwarded?: number
-  xpAwarded?: number
-  currentScore?: number
-  streak?: number
 }
 
 export function QuestionModal({
@@ -38,16 +34,37 @@ export function QuestionModal({
   onLeave,
   onAnswer,
   onContinue,
-  scoreAwarded,
-  xpAwarded,
-  currentScore,
-  streak,
 }: QuestionModalProps) {
-  const [timeLeft, setTimeLeft] = useState<number | null>(() => open && questionTimeSeconds && !feedback ? questionTimeSeconds : null)
+  const [timeLeft, setTimeLeft] = useState<number | null>(null)
+  const [essayDraft, setEssayDraft] = useState('')
+  const [isSubmittingEssay, setIsSubmittingEssay] = useState(false)
   // Guard agar auto-submit timeout hanya dikirim SATU KALI
   const hasAutoSubmitted = useRef(false)
+  const isEssayQuestion = Boolean(
+    question?.type === 'essay' ||
+    question?.type === 'uraian' ||
+    question?.answerType === 'essay' ||
+    question?.answerType === 'uraian' ||
+    question?.isEssay ||
+    (Array.isArray(question?.options) && question.options.length === 0),
+  )
 
   // Timer initialization — reset guard setiap soal baru
+  useEffect(() => {
+    if (open && questionTimeSeconds && !feedback && !isEssayQuestion) {
+      setTimeLeft(questionTimeSeconds)
+      hasAutoSubmitted.current = false
+    } else if (feedback || !open) {
+      setTimeLeft(null)
+    }
+  }, [open, questionTimeSeconds, feedback, isEssayQuestion])
+
+  useEffect(() => {
+    if (open && isEssayQuestion) {
+      setEssayDraft('')
+    }
+  }, [open, question?.id, isEssayQuestion])
+
   // Timer countdown
   useEffect(() => {
     if (timeLeft === null || timeLeft <= 0 || feedback) return
@@ -66,13 +83,19 @@ export function QuestionModal({
   if (!open || !question) return null
 
   const hasAnswered = Boolean(feedback)
-  const correct = typeof isCorrect === 'boolean' ? isCorrect : selectedAnswer === correctOption
+  const correct = isEssayQuestion ? null : typeof isCorrect === 'boolean' ? isCorrect : selectedAnswer === correctOption
   const timerPercent = questionTimeSeconds && timeLeft !== null ? (timeLeft / questionTimeSeconds) * 100 : 0
   const isUrgent = timeLeft !== null && timeLeft <= 10
 
+  function submitEssayAnswer() {
+    if (!essayDraft.trim()) return
+    setIsSubmittingEssay(true)
+    Promise.resolve(onAnswer(essayDraft.trim())).finally(() => setIsSubmittingEssay(false))
+  }
+
   return (
     <div className="question-overlay" role="dialog" aria-modal="true" aria-labelledby="question-modal-title">
-      <div className="question-modal">
+      <div className="question-modal" style={{ overflowY: 'auto', maxHeight: '90vh' }}>
         {questionTimeSeconds && !hasAnswered && timeLeft !== null && (
           <div className="question-timer-bar">
             <div className={`question-timer-fill ${isUrgent ? 'urgent' : ''}`} style={{ width: `${timerPercent}%` }} />
@@ -88,53 +111,76 @@ export function QuestionModal({
         </div>
         <div className="question-icon"><Dices /></div>
         <h2 id="question-modal-title">{question.content || question.text}</h2>
-        <p>Pilih jawaban yang benar untuk menggerakkan pion sejauh {dice} langkah.</p>
+        {!isEssayQuestion ? (
+          <p>Pilih jawaban yang benar untuk menggerakkan pion sejauh {dice} langkah.</p>
+        ) : (
+          <p>Jawaban uraianmu akan disimpan dan divalidasi oleh guru. Setelah dikirim, kamu bisa melihat pembahasan referensi di bawah ini.</p>
+        )}
 
-        <div className="answer-grid">
-          {(Array.isArray(question.options)
-            ? question.options.map((opt) => {
-                if (typeof opt === 'object' && 'key' in opt) return { key: String(opt.key), text: String(opt.text) }
-                // JSONB format dari SQL: { A: 'teks A', B: 'teks B', ... }
-                const entries = Object.entries(opt as Record<string, string>)
-                return entries.map(([k, v]) => ({ key: k, text: v }))
-              }).flat()
-            : []
-          ).map((answer) => {
-            const isSelected = selectedAnswer === answer.key
-            const answerState = hasAnswered
-              ? answer.key === correctOption
-                ? 'is-correct'
+        {!isEssayQuestion && (
+          <div className="answer-grid">
+            {(Array.isArray(question.options)
+              ? question.options.map((opt) => {
+                  if (typeof opt === 'object' && 'key' in opt) return { key: String(opt.key), text: String(opt.text) }
+                  // JSONB format dari SQL: { A: 'teks A', B: 'teks B', ... }
+                  const entries = Object.entries(opt as Record<string, string>)
+                  return entries.map(([k, v]) => ({ key: k, text: v }))
+                }).flat()
+              : []
+            ).map((answer) => {
+              const isSelected = selectedAnswer === answer.key
+              const answerState = hasAnswered
+                ? answer.key === correctOption
+                  ? 'is-correct'
+                  : isSelected
+                    ? 'is-wrong'
+                    : ''
                 : isSelected
-                  ? 'is-wrong'
+                  ? 'selected'
                   : ''
-              : isSelected
-                ? 'selected'
-                : ''
 
-            return (
-              <button
-                key={answer.key}
-                className={`answer-button ${answerState}`}
-                onClick={() => {
-                  // Cegah klik ganda: jika sudah ada jawaban, abaikan
-                  if (hasAnswered || selectedAnswer) return
-                  onAnswer(answer.key)
-                }}
-                disabled={hasAnswered || Boolean(selectedAnswer)}
-              >
-                <strong>{answer.key}.</strong> {answer.text}
-              </button>
-            )
-          })}
-        </div>
+              return (
+                <button
+                  key={answer.key}
+                  className={`answer-button ${answerState}`}
+                  onClick={() => {
+                    // Cegah klik ganda: jika sudah ada jawaban, abaikan
+                    if (hasAnswered || selectedAnswer) return
+                    onAnswer(answer.key)
+                  }}
+                  disabled={hasAnswered || Boolean(selectedAnswer)}
+                >
+                  <strong>{answer.key}.</strong> {answer.text}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {isEssayQuestion && !hasAnswered && (
+          <div className="essay-answer-wrapper" style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
+            <label htmlFor="essay-answer" style={{ fontWeight: 600 }}>Jawaban uraian</label>
+            <textarea
+              id="essay-answer"
+              value={essayDraft}
+              onChange={(event) => setEssayDraft(event.target.value)}
+              rows={6}
+              placeholder="Tuliskan langkah penyelesaianmu di sini..."
+              style={{ width: '100%', resize: 'vertical', borderRadius: '0.875rem', border: '1px solid rgba(148, 163, 184, 0.45)', padding: '0.75rem 0.9rem', font: 'inherit' }}
+            />
+            <button type="button" className="continue-answer" onClick={submitEssayAnswer} disabled={!essayDraft.trim() || isSubmittingEssay}>
+              {isSubmittingEssay ? 'Mengirim...' : 'Kirim jawaban'} {!isSubmittingEssay && <ChevronRight size={16} />}
+            </button>
+          </div>
+        )}
 
         {hasAnswered && (
-          <div className={`answer-review ${correct ? 'correct' : 'wrong'}`} role="status" aria-live="polite">
+          <div className={`answer-review ${isEssayQuestion ? 'correct' : correct ? 'correct' : 'wrong'}`} role="status" aria-live="polite">
             <strong>
-              {correct ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
-              {correct ? 'Jawaban benar' : 'Jawaban belum tepat'}
+              {isEssayQuestion ? <CheckCircle2 size={18} /> : correct ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+              {isEssayQuestion ? 'Jawaban berhasil disimpan' : correct ? 'Jawaban benar' : 'Jawaban belum tepat'}
             </strong>
-            <p>{feedback}</p>
+            <p>{feedback || (isEssayQuestion ? 'Jawaban kamu sudah diterima. Nilai akan divalidasi oleh guru.' : '')}</p>
             {explanation && (
               <div className="answer-explanation">
                 <span>Pembahasan</span>
@@ -144,16 +190,16 @@ export function QuestionModal({
                 {explanation.solutions?.map((solution) => (
                   <div key={solution.method} style={{ marginTop: '0.5rem' }}>
                     <b>{solution.method === 'multiples' ? '📋 Cara Kelipatan' : '🔢 Faktorisasi Prima'}:</b>
-                    {Array.isArray(solution.steps)
-                      ? solution.steps.map((step, i) => <p key={i} style={{ margin: '2px 0', paddingLeft: '0.75rem' }}>• {step}</p>)
-                      : null}
+                    {(Array.isArray(solution.steps) ? solution.steps : solution.steps?.steps || []).map((step, i) => (
+                      <p key={i} style={{ margin: '2px 0', paddingLeft: '0.75rem' }}>• {step}</p>
+                    ))}
                   </div>
                 ))}
                 {explanation.finalExplanation && <p style={{ marginTop: '0.5rem' }}><b>✅ Jawaban akhir:</b> {explanation.finalExplanation}</p>}
               </div>
             )}
             <button className="continue-answer" onClick={onContinue}>
-              {correct ? '🎯 Tutup & Pilih Pion' : '➡️ Giliran Berikutnya'} <ChevronRight size={16} />
+              {isEssayQuestion ? '➡️ Lanjutkan' : correct ? '🎯 Tutup & Pilih Pion' : '➡️ Giliran Berikutnya'} <ChevronRight size={16} />
             </button>
           </div>
         )}

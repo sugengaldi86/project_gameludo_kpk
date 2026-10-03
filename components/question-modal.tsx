@@ -132,9 +132,9 @@ export function QuestionModal({
           <div className={`answer-review ${correct ? 'correct' : 'wrong'}`} role="status" aria-live="polite">
             <strong>
               {correct ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
-              {correct ? 'Jawaban benar' : 'Jawaban belum tepat'}
+              {correct ? 'Jawaban benar!' : 'Jawaban belum tepat'}
             </strong>
-            <p>{feedback}</p>
+            {feedback && <p>{feedback}</p>}
             {explanation && (
               <div className="answer-explanation">
                 <span>Pembahasan</span>
@@ -143,7 +143,7 @@ export function QuestionModal({
                 {explanation.strategy && <p><b>Strategi:</b> {explanation.strategy}</p>}
                 {explanation.solutions?.map((solution) => (
                   <div key={solution.method} style={{ marginTop: '0.5rem' }}>
-                    <b>{solution.method === 'multiples' ? '📋 Cara Kelipatan' : '🔢 Faktorisasi Prima'}:</b>
+                    <b>{solution.method === 'multiples' ? '📋 Cara Kelipatan' : solution.method === 'prime_factorization' ? '🔢 Faktorisasi Prima' : '➗ Pembagian Bersusun'}:</b>
                     {Array.isArray(solution.steps)
                       ? solution.steps.map((step, i) => <p key={i} style={{ margin: '2px 0', paddingLeft: '0.75rem' }}>• {step}</p>)
                       : null}

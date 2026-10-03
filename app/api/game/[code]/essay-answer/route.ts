@@ -35,22 +35,21 @@ export async function POST(request: Request, { params }: Context) {
         essayCount?: number; choiceCount?: number; targets?: { essay: number; multipleChoice: number }
       }
       if (result.alreadyAnswered) return NextResponse.json(result)
-      let explanation = null
-      if (result.showExplanation) {
-        const [{ data: question }, { data: solutions }] = await Promise.all([
-          supabase.from('questions').select('known_information,asked_information,strategy,final_explanation').eq('id', body.questionId).maybeSingle(),
-          supabase.from('question_solutions').select('method,steps,result').eq('question_id', body.questionId),
-        ])
-        explanation = {
-          knownInformation: question?.known_information || null,
-          askedInformation: question?.asked_information || null,
-          strategy: question?.strategy || null,
-          finalExplanation: question?.final_explanation || null,
-          solutions: solutions || [],
-        }
+      // Selalu ambil explanation — pembahasan referensi wajib tampil untuk uraian
+      const [{ data: question }, { data: solutions }] = await Promise.all([
+        supabase.from('questions').select('known_information,asked_information,strategy,final_explanation').eq('id', body.questionId).maybeSingle(),
+        supabase.from('question_solutions').select('method,steps,result').eq('question_id', body.questionId),
+      ])
+      const explanation = {
+        knownInformation: question?.known_information || null,
+        askedInformation: question?.asked_information || null,
+        strategy: question?.strategy || null,
+        finalExplanation: question?.final_explanation || null,
+        solutions: solutions || [],
       }
       return NextResponse.json({
-        saved: true, explanation, feedbackDeferred: !result.showExplanation,
+        saved: true, explanation,
+        feedbackDeferred: false,
         gameComplete: Boolean(result.gameComplete), essayCount: result.essayCount || 0,
         choiceCount: result.choiceCount || 0, targets: result.targets,
       })
@@ -128,8 +127,10 @@ export async function POST(request: Request, { params }: Context) {
     const choiceTarget = exam?.multiple_choice_question_count ?? 10
     const gameComplete = (essayCount || 0) >= essayTarget && (choiceCount || 0) >= choiceTarget
     if (gameComplete) await supabase.rpc('finalize_completed_game', { p_room_id: guest.roomId })
-    const showExplanation = exam?.feedback_timing === 'immediate' || gameComplete
-    return NextResponse.json({ saved: true, explanation: showExplanation ? explanation : null, feedbackDeferred: !showExplanation, gameComplete, essayCount: essayCount || 0, choiceCount: choiceCount || 0, targets: { essay: essayTarget, multipleChoice: choiceTarget } })
+    // Pembahasan referensi selalu ditampilkan untuk soal uraian.
+    // Nilai uraian tetap menunggu validasi guru; feedbackDeferred tetap false
+    // agar frontend tahu giliran sudah berpindah tanpa menunggu penilaian.
+    return NextResponse.json({ saved: true, explanation, feedbackDeferred: false, gameComplete, essayCount: essayCount || 0, choiceCount: choiceCount || 0, targets: { essay: essayTarget, multipleChoice: choiceTarget } })
   } catch (error) {
     console.error('Error in POST /api/game/[code]/essay-answer:', error)
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Server error' }, { status: 500 })

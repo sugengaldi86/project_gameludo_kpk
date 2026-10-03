@@ -215,10 +215,10 @@ export function EssayQuestionModal({
           <div className="essay-feedback-heading">
             <CheckCircle2 />
             <div>
-              <h2 id="essay-title">Jawaban berhasil disimpan</h2>
+              <h2 id="essay-title">Jawaban Berhasil Disimpan!</h2>
               <p>
-                Jawabanmu akan diperiksa oleh guru. Pembahasan ini merupakan
-                referensi, bukan nilai akhir.
+                Jawabanmu akan divalidasi oleh guru. Mari lihat
+                pembahasan atau kunci jawaban untuk soal ini.
               </p>
             </div>
           </div>
@@ -226,31 +226,30 @@ export function EssayQuestionModal({
             <span className="essay-reference-label">PEMBAHASAN REFERENSI</span>
             {explanation.knownInformation && (
               <section>
-                <b>01 · Memahami masalah</b>
                 <p>
-                  <strong>Diketahui</strong>
+                  <strong>Diketahui: </strong>
                   {explanation.knownInformation}
                 </p>
                 {explanation.askedInformation && (
                   <p>
-                    <strong>Ditanyakan</strong>
+                    <strong>Ditanyakan: </strong>
                     {explanation.askedInformation}
                   </p>
                 )}
-              </section>
-            )}
-            {explanation.strategy && (
-              <section>
-                <b>02 · Merencanakan penyelesaian</b>
-                <p>{explanation.strategy}</p>
+                {explanation.strategy && (
+                  <p>
+                    <strong>Strategi: </strong>
+                    {explanation.strategy}
+                  </p>
+                )}
               </section>
             )}
             {explanation.solutions?.map((solution) => (
               <section key={solution.method}>
                 <b>
-                  03 ·{" "}
                   {METHODS.find((method) => method.value === solution.method)
                     ?.label || "Melaksanakan rencana"}
+                  :
                 </b>
                 {solution.steps.map((step, index) => (
                   <p key={index}>{step}</p>
@@ -259,15 +258,22 @@ export function EssayQuestionModal({
             ))}
             {explanation.finalExplanation && (
               <section>
-                <b>04 · Memeriksa kembali</b>
-                <p>{explanation.finalExplanation}</p>
+                <p>
+                  <strong className="essay-final-answer">✅ Jawaban akhir: </strong>
+                  {explanation.finalExplanation}
+                </p>
+              </section>
+            )}
+            {!explanation.knownInformation && !explanation.finalExplanation && !explanation.solutions?.length && (
+              <section>
+                <p>Pembahasan belum tersedia untuk soal ini.</p>
               </section>
             )}
           </div>
           <div className="essay-submit-row">
             <small>Nilai uraian belum dihitung pada peringkat sementara.</small>
             <button className="continue-answer" onClick={onContinue}>
-              Lanjutkan Permainan
+              Lanjutkan Permainan 🎯
             </button>
           </div>
         </div>

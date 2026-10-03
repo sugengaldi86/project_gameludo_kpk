@@ -252,6 +252,8 @@ export default function Page() {
             setSessionStatus('QUIZ')
             if (result.question) {
               setCurrentQuestion(result.question)
+              if (result.targets) { setEssayTarget(result.targets.essay); setChoiceTarget(result.targets.multipleChoice) }
+              setQuestionProgressLabel(result.progress || (result.question.type === 'essay' ? `${essayProgress + 1}/${essayTarget}` : `${choiceProgress + 1}/${choiceTarget}`))
               setNotice('Pion belum bisa keluar. Jawab soal untuk mendapatkan poin!')
               window.setTimeout(() => setQuestionOpen(true), 500)
             } else {
@@ -364,11 +366,13 @@ export default function Page() {
       if (!response.ok) throw new Error(result.error || 'Jawaban uraian gagal disimpan')
       
       if (result.explanation) {
+        // Ada pembahasan — tampilkan PEMBAHASAN REFERENSI di modal (nilai tetap divalidasi guru)
         setExplanation(result.explanation)
         setAnswerTurnAdvanced(true)
         setEssayProgress(result.essayCount || essayProgress + 1)
-        setNotice(result.gameComplete ? 'Seluruh soal selesai!' : 'Jawaban uraian tersimpan.')
+        setNotice(result.gameComplete ? 'Seluruh soal selesai!' : 'Jawaban uraian tersimpan. Lihat pembahasan referensi.')
       } else {
+        // Fallback: tidak ada pembahasan → langsung lanjut (tidak harusnya terjadi setelah fix API)
         setQuestionOpen(false)
         setCurrentQuestion(null)
         setEssayProgress(result.essayCount || essayProgress + 1)

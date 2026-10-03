@@ -77,9 +77,9 @@ export async function POST(request: Request, { params }: Context) {
       if (manualDifference !== 0) return manualDifference
       return (first.display_order || 0) - (second.display_order || 0)
     })
-    const nextDifficulty = orderedCandidates[0].difficulty
-    const sameLevelCandidates = orderedCandidates.filter(item => item.difficulty === nextDifficulty)
-    const question = exam?.randomize_questions === false ? orderedCandidates[0] : sameLevelCandidates[Math.floor(Math.random() * sameLevelCandidates.length)]
+    const question = exam?.randomize_questions === false
+      ? orderedCandidates[0]
+      : candidates[Math.floor(Math.random() * candidates.length)]
     const { error: turnError } = await supabase.from('game_turns').update({ question_id: question.id }).eq('game_session_id', session.id).eq('turn_number', session.current_turn_number)
     if (turnError) return NextResponse.json({ error: turnError.message }, { status: 500 })
     return NextResponse.json({ ...data, phase: question.question_type, targets: { essay: essayTarget, multipleChoice: choiceTarget }, progress: question.question_type === 'essay' ? `${(essayCount || 0) + 1}/${essayTarget}` : `${(choiceCount || 0) + 1}/${choiceTarget}`, question: {

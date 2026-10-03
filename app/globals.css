@@ -796,3 +796,91 @@ img,svg{max-width:100%}input,select,textarea,button{max-width:100%}.welcome-card
   .essay-answer-grid { padding: 16px 16px; }
   .essay-stage { padding: 14px 16px; }
 }
+
+/* ===== Essay Feedback / Pembahasan Referensi ===== */
+.essay-feedback-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 28px 30px 22px;
+  background: #f0f5ff;
+  border-bottom: 1px solid #dce4ef;
+}
+.essay-feedback-heading svg {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: #3156e8;
+  margin-top: 2px;
+}
+.essay-feedback-heading h2 {
+  margin: 0 0 5px;
+  color: #14213d;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.essay-feedback-heading p {
+  margin: 0;
+  color: #60708a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.essay-reference {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 30px;
+  overflow-y: auto;
+  max-height: 42vh;
+}
+.essay-reference-label {
+  display: block;
+  padding: 16px 0 10px;
+  color: #3156e8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  border-bottom: 1px solid #e5ecfb;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+.essay-reference section {
+  padding: 14px 0;
+  border-bottom: 1px solid #f0f4fa;
+}
+.essay-reference section:last-child {
+  border-bottom: none;
+  padding-bottom: 20px;
+}
+.essay-reference section b {
+  display: block;
+  color: #29456f;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.essay-reference section p {
+  margin: 4px 0;
+  color: #3d5070;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.essay-reference section strong {
+  color: #203661;
+  font-weight: 700;
+}
+.essay-final-answer {
+  color: #1a7a3a !important;
+}
+
+@media (max-width: 640px) {
+  .essay-feedback-heading { padding: 22px 20px 18px; gap: 12px; }
+  .essay-reference { padding: 0 20px; max-height: 38vh; }
+}
+

@@ -15,12 +15,16 @@ export type Player = {
 }
 
 export const boardCells = Array.from({ length: 225 }, (_, index) => index)
+export type QuestionType = 'multiple_choice' | 'essay' | 'mcq' | 'uraian'
+
 export type Question = {
   id: string
-  type?: 'essay' | 'multiple_choice'
+  type?: QuestionType
   code?: string
   text?: string
   content?: string
+  answerType?: QuestionType
+  isEssay?: boolean
   options: Array<{ key: string; text: string } | Record<string, string>>
   difficulty?: string
   correctAnswer?: string

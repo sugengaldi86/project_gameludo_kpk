@@ -60,45 +60,21 @@ export function validateQuestionInput(value: unknown):
   if (!QUESTION_DIFFICULTIES.includes(input.difficulty as never)) {
     return { success: false, error: 'Tingkat kesulitan tidak valid' }
   }
+
+  const questionType = (input.question_type || 'multiple_choice') as 'multiple_choice' | 'essay'
   const operandCount = Number(input.operand_count || (numberC ? 3 : 2))
+  const contextType = (input.context_type || 'kontekstual') as 'kontekstual' | 'langsung'
   if (![2, 3].includes(operandCount) || (operandCount === 3 && numberC === null)) {
     return { success: false, error: 'Soal tiga bilangan wajib mempunyai Bilangan C' }
   }
-  if (!['kontekstual', 'langsung'].includes(String(input.context_type || 'kontekstual'))) {
+  if (!['kontekstual', 'langsung'].includes(contextType)) {
     return { success: false, error: 'Jenis konteks soal tidak valid' }
   }
-
   const options = Array.isArray(input.question_options) ? input.question_options : []
-  if (options.length !== 4) {
-    return { success: false, error: 'Soal harus memiliki tepat empat pilihan jawaban' }
-  }
-  if (!OPTION_KEYS.every((key) => options.some((option) => option.option_key === key))) {
-    return { success: false, error: 'Pilihan jawaban harus terdiri dari A, B, C, dan D' }
-  }
-  if (options.some((option) => !String(option.option_text || '').trim())) {
-    return { success: false, error: 'Semua pilihan jawaban wajib diisi' }
-  }
-
-  const correctOptions = options.filter((option) => option.is_correct)
-  if (correctOptions.length !== 1) {
-    return { success: false, error: 'Tepat satu pilihan harus ditandai benar' }
-  }
-
   const expectedLcm = calculateLcm(numberC ? [numberA, numberB, numberC] : [numberA, numberB])
+
   if (Number(input.correct_value) !== expectedLcm) {
     return { success: false, error: `Nilai jawaban benar harus sama dengan KPK, yaitu ${expectedLcm}` }
-  }
-
-  const correctOption = correctOptions[0].option_key as OptionKey
-  if (input.correct_option !== correctOption) {
-    return { success: false, error: 'Penanda pilihan benar tidak konsisten' }
-  }
-  const optionNumbers = String(correctOptions[0].option_text).match(/\d+/g)?.map(Number) || []
-  if (!optionNumbers.includes(expectedLcm)) {
-    return { success: false, error: `Teks pilihan yang ditandai benar harus memuat nilai KPK ${expectedLcm}` }
-  }
-  if (!finalExplanation.includes(String(expectedLcm))) {
-    return { success: false, error: `Pembahasan akhir harus memuat hasil KPK ${expectedLcm}` }
   }
 
   const solutions = Array.isArray(input.question_solutions) ? input.question_solutions : []
@@ -110,10 +86,72 @@ export function validateQuestionInput(value: unknown):
     return { success: false, error: 'Setiap metode pembahasan wajib memiliki minimal satu langkah' }
   }
 
+  if (questionType === 'multiple_choice') {
+    if (options.length !== 4) {
+      return { success: false, error: 'Soal pilihan ganda harus memiliki tepat empat pilihan jawaban' }
+    }
+    if (!OPTION_KEYS.every((key) => options.some((option) => option.option_key === key))) {
+      return { success: false, error: 'Pilihan jawaban harus terdiri dari A, B, C, dan D' }
+    }
+    if (options.some((option) => !String(option.option_text || '').trim())) {
+      return { success: false, error: 'Semua pilihan jawaban wajib diisi' }
+    }
+
+    const correctOptions = options.filter((option) => option.is_correct)
+    if (correctOptions.length !== 1) {
+      return { success: false, error: 'Tepat satu pilihan harus ditandai benar' }
+    }
+
+    const correctOption = correctOptions[0].option_key as OptionKey
+    if (input.correct_option !== correctOption) {
+      return { success: false, error: 'Penanda pilihan benar tidak konsisten' }
+    }
+    const numericAnswer = Number(String(correctOptions[0].option_text).replace(',', '.').match(/-?\d+(?:\.\d+)?/)?.[0])
+    if (!Number.isFinite(numericAnswer) || numericAnswer !== expectedLcm) {
+      return { success: false, error: `Teks pilihan yang ditandai benar harus memuat nilai KPK ${expectedLcm}` }
+    }
+
+    return {
+      success: true,
+      data: {
+        question_code: code,
+        question_type: 'multiple_choice',
+        story,
+        difficulty: input.difficulty!,
+        topic: String(input.topic || 'kpk').trim().toLowerCase(),
+        known_information: knownInformation,
+        asked_information: askedInformation,
+        strategy: String(input.strategy || 'KPK').trim().toUpperCase(),
+        number_a: numberA,
+        number_b: numberB,
+        number_c: numberC,
+        operand_count: operandCount as 2 | 3,
+        context_type: contextType,
+        correct_value: expectedLcm,
+        correct_option: correctOption,
+        final_explanation: finalExplanation,
+        is_active: Boolean(input.is_active),
+        question_options: options.map((option) => ({
+          option_key: option.option_key,
+          option_text: String(option.option_text).trim(),
+          is_correct: option.option_key === correctOption,
+        })),
+        question_solutions: solutions.map((solution) => ({
+          method: solution.method,
+          steps: Array.isArray(solution.steps)
+            ? solution.steps.map(String).map((step) => step.trim()).filter(Boolean)
+            : [],
+          result: expectedLcm,
+        })),
+      },
+    }
+  }
+
   return {
     success: true,
     data: {
       question_code: code,
+      question_type: 'essay',
       story,
       difficulty: input.difficulty!,
       topic: String(input.topic || 'kpk').trim().toLowerCase(),
@@ -124,16 +162,12 @@ export function validateQuestionInput(value: unknown):
       number_b: numberB,
       number_c: numberC,
       operand_count: operandCount as 2 | 3,
-      context_type: (input.context_type || 'kontekstual') as 'kontekstual' | 'langsung',
+      context_type: contextType,
       correct_value: expectedLcm,
-      correct_option: correctOption,
+      correct_option: 'A',
       final_explanation: finalExplanation,
       is_active: Boolean(input.is_active),
-      question_options: options.map((option) => ({
-        option_key: option.option_key,
-        option_text: String(option.option_text).trim(),
-        is_correct: option.option_key === correctOption,
-      })),
+      question_options: [],
       question_solutions: solutions.map((solution) => ({
         method: solution.method,
         steps: Array.isArray(solution.steps)

@@ -5,6 +5,7 @@ export const QUESTION_DIFFICULTIES = [
 ] as const
 
 export type QuestionDifficulty = (typeof QUESTION_DIFFICULTIES)[number]
+export type QuestionType = 'multiple_choice' | 'essay'
 export type OptionKey = 'A' | 'B' | 'C' | 'D'
 
 export type QuestionOption = {
@@ -24,6 +25,7 @@ export type QuestionSolution = {
 export type AdminQuestion = {
   id: string
   question_code: string
+  question_type: QuestionType
   story: string
   difficulty: QuestionDifficulty
   topic: string

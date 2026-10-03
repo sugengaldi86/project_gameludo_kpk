@@ -15,7 +15,10 @@ export async function POST(request: Request, { params }: Context) {
     if (deadline.expired) return NextResponse.json({ error: deadline.error, expired: true }, { status: 410 })
 
     const body = await request.json()
-    if (typeof body.questionId !== 'string' || !['A', 'B', 'C', 'D', '__TIMEOUT__'].includes(body.selectedOption)) {
+    const isEssayQuestion = body.questionType === 'essay' || body.answerText !== undefined
+    const isValidMultipleChoice = typeof body.questionId === 'string' && ['A', 'B', 'C', 'D', '__TIMEOUT__'].includes(body.selectedOption)
+    const isValidEssayAnswer = typeof body.questionId === 'string' && typeof body.answerText === 'string' && body.answerText.trim().length > 0
+    if (!isValidMultipleChoice && !isValidEssayAnswer) {
       return NextResponse.json({ error: 'Jawaban tidak valid' }, { status: 400 })
     }
 
@@ -24,7 +27,7 @@ export async function POST(request: Request, { params }: Context) {
     // Cek status sesi SEBELUM memanggil RPC
     const { data: session } = await supabase
       .from('game_sessions')
-      .select('id, status, current_turn_number')
+      .select('id, status, current_turn_number, current_player_id')
       .eq('room_id', guest.roomId)
       .single()
 
@@ -57,6 +60,48 @@ export async function POST(request: Request, { params }: Context) {
     const GRACE_PERIOD_MS = 5000
     const timedOut = Boolean(limit && activeTurn?.started_at && Date.now() >= new Date(activeTurn.started_at).getTime() + (limit * 1000) + GRACE_PERIOD_MS)
     const selectedOption = timedOut ? '__TIMEOUT__' : body.selectedOption
+
+    if (isEssayQuestion) {
+      const { data: question, error: questionError } = await supabase
+        .from('questions')
+        .select('id, question_code, question_type, known_information, asked_information, strategy, final_explanation, question_solutions(method, steps, result)')
+        .eq('id', body.questionId)
+        .single()
+
+      if (questionError || !question) {
+        return NextResponse.json({ error: 'Soal uraian tidak ditemukan' }, { status: 404 })
+      }
+
+      const { data: answer, error: answerError } = await supabase.rpc('answer_game_turn', {
+        p_room_id: guest.roomId,
+        p_question_id: question.id,
+        p_selected_option: body.answerText,
+      })
+
+      if (answerError || !answer) {
+        console.warn('[answer] essay RPC failed:', answerError?.message || 'answer_game_turn returned null')
+        return NextResponse.json({ error: answerError?.message || 'Jawaban uraian gagal disimpan' }, { status: 409 })
+      }
+
+      const solutions = Array.isArray(question.question_solutions) ? question.question_solutions : []
+      return NextResponse.json({
+        isCorrect: null,
+        scoreAwarded: 0,
+        xpAwarded: 0,
+        correctOption: null,
+        turnAdvanced: true,
+        timedOut,
+        feedback: 'Jawaban berhasil disimpan. Nilai akan divalidasi oleh guru.',
+        explanation: {
+          knownInformation: question.known_information,
+          askedInformation: question.asked_information,
+          strategy: question.strategy,
+          finalExplanation: question.final_explanation,
+          solutions,
+        },
+        nextTurn: answer.nextTurn,
+      })
+    }
 
     const { data: answer, error: answerError } = await supabase.rpc('answer_game_turn', {
       p_room_id: guest.roomId,

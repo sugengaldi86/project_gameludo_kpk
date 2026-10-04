@@ -6,6 +6,7 @@ import { GameBoard } from '@/components/game-board'
 import { GameNavigation } from '@/components/game-navigation'
 import { DicePanel } from '@/components/dice-panel'
 import { QuestionModal } from '@/components/question-modal'
+import { EssayQuestionModal, type EssayAnswer } from '@/components/essay-question-modal'
 import { SetupScreen } from '@/components/setup-screen'
 import { WelcomeScreen } from '@/components/welcome-screen'
 import { type NavItem, type Player, type Question } from '@/lib/game-data'
@@ -48,8 +49,20 @@ export default function Page() {
   const [savedRoomCode, setSavedRoomCode] = useState<string | null>(null)
   const [restoringSession, setRestoringSession] = useState(false)
   const [recoveryError, setRecoveryError] = useState('')
-  // Ref untuk mencegah pengiriman jawaban ganda secara bersamaan
+
+  // State untuk melacak progres soal uraian & PG
+  const [essayProgress, setEssayProgress] = useState(0)
+  const [essayTarget, setEssayTarget] = useState(5)
+  const [choiceProgress, setChoiceProgress] = useState(0)
+  const [choiceTarget, setChoiceTarget] = useState(10)
+  const [questionProgressLabel, setQuestionProgressLabel] = useState('')
+  const [savingEssay, setSavingEssay] = useState(false)
+
+  // Refs untuk mencegah aksi ganda secara bersamaan
   const isSubmittingAnswer = useRef(false)
+  const isMovingPawn = useRef(false)
+  const isRollingDice = useRef(false)
+  const isSavingEssay = useRef(false)
 
   async function refreshGame(code: string): Promise<Player[]> {
     const response = await fetch(`/api/game/${code}`, { cache: 'no-store' })
@@ -198,7 +211,8 @@ export default function Page() {
   })
 
   async function rollDice() {
-    if (rolling || questionOpen || canMovePawn || sessionStatus !== 'TURN_START') return
+    if (rolling || isRollingDice.current || questionOpen || canMovePawn || sessionStatus !== 'TURN_START') return
+    isRollingDice.current = true
     setRolling(true)
     setQuestionOpen(false)
     setSelectedAnswer(null)
@@ -220,6 +234,7 @@ export default function Page() {
           setDice(result.diceValue)
           playFeedbackSound(440)
           setRolling(false)
+          isRollingDice.current = false
           setSessionStatus(result.nextStatus)
           
           if (result.canMovePawn) {
@@ -238,7 +253,11 @@ export default function Page() {
               setTimeout(() => refreshGame(roomCode), 1000)
             }
           }
-        }).catch((error) => { setRolling(false); setNotice(error instanceof Error ? error.message : 'Dadu gagal dilempar') })
+        }).catch((error) => {
+          setRolling(false)
+          isRollingDice.current = false
+          setNotice(error instanceof Error ? error.message : 'Dadu gagal dilempar')
+        })
       }
     }, 100)
   }
@@ -247,12 +266,6 @@ export default function Page() {
     // Guard: jika sedang memproses jawaban atau sudah ada jawaban, abaikan
     if (!currentQuestion || selectedAnswer || isSubmittingAnswer.current) return
     isSubmittingAnswer.current = true
-    const isEssayQuestion = currentQuestion.type === 'essay'
-      || currentQuestion.type === 'uraian'
-      || currentQuestion.answerType === 'essay'
-      || currentQuestion.answerType === 'uraian'
-      || currentQuestion.isEssay
-      || (Array.isArray(currentQuestion.options) && currentQuestion.options.length === 0)
     const submittedAnswer = answer || '__TIMEOUT__'
     setSelectedAnswer(submittedAnswer)
     try {
@@ -262,13 +275,12 @@ export default function Page() {
         body: JSON.stringify({
           questionId: currentQuestion.id,
           selectedOption: submittedAnswer,
-          answerText: isEssayQuestion && typeof answer === 'string' ? answer : undefined,
-          questionType: isEssayQuestion ? 'essay' : 'multiple_choice',
+          questionType: 'multiple_choice',
         }),
       })
       const result = await response.json()
 
-      // 410 = waktu game habis (bukan race condition)
+      // 410 = waktu game habis
       if (response.status === 410) {
         setNotice(result.error || 'Waktu ujian telah habis.')
         setSessionStatus('GAME_OVER')
@@ -279,8 +291,8 @@ export default function Page() {
         setIsAnswerCorrect(null)
         setCorrectOption(null)
         setExplanation(null)
-        setFeedback('Jawaban berhasil disimpan. Nilai akan divalidasi oleh guru.')
-        setNotice('Jawaban sudah tersimpan. Tunggu validasi guru untuk skor akhir.')
+        setFeedback('Jawaban berhasil disimpan.')
+        setNotice('Jawaban sudah tersimpan.')
         setAnswerTurnAdvanced(true)
         setSessionStatus('TURN_END')
         return
@@ -291,14 +303,14 @@ export default function Page() {
 
       setCorrectOption(result.correctOption ?? null)
       setIsAnswerCorrect(result.isCorrect)
-      setExplanation(result.explanation)
+      setExplanation(result.explanation || null)
       setAnswerTurnAdvanced(Boolean(result.turnAdvanced))
-
-      if (isEssayQuestion) {
-        setFeedback(result.feedback || 'Jawaban berhasil disimpan. Nilai akan divalidasi oleh guru.')
-        setNotice('Jawaban disimpan. Tunggu validasi guru untuk skor akhir.')
-        setSessionStatus('TURN_END')
-        return
+      if (result.targets) {
+        setEssayTarget(result.targets.essay)
+        setChoiceTarget(result.targets.multipleChoice)
+      }
+      if (typeof result.choiceCount === 'number') {
+        setChoiceProgress(result.choiceCount)
       }
 
       if (result.isCorrect) {
@@ -324,9 +336,9 @@ export default function Page() {
     }
   }, [currentQuestion, selectedAnswer, roomCode])
 
-
   async function handlePawnClick(pawnId: string) {
-    if (!canMovePawn) return
+    if (!canMovePawn || isMovingPawn.current) return
+    isMovingPawn.current = true
     try {
       const response = await fetch(`/api/game/${roomCode}/pawn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pawnId }) })
       const result = await response.json()
@@ -335,6 +347,8 @@ export default function Page() {
       setSessionStatus(result.nextStatus)
       if (result.question) {
         setCurrentQuestion(result.question)
+        if (result.targets) { setEssayTarget(result.targets.essay); setChoiceTarget(result.targets.multipleChoice) }
+        setQuestionProgressLabel(result.progress || (result.question.type === 'essay' ? `${essayProgress + 1}/${essayTarget}` : `${choiceProgress + 1}/${choiceTarget}`))
         setNotice('Pion mendarat! Jawab soal untuk mendapatkan poin.')
         window.setTimeout(() => setQuestionOpen(true), 350)
       } else if (result.finished) {
@@ -344,6 +358,42 @@ export default function Page() {
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Pion gagal digerakkan. Coba lagi.')
       await refreshGame(roomCode).catch(() => setCanMovePawn(true))
+    } finally {
+      isMovingPawn.current = false
+    }
+  }
+
+  async function answerEssay(answer: EssayAnswer) {
+    if (!currentQuestion || savingEssay || isSavingEssay.current) return
+    isSavingEssay.current = true
+    setSavingEssay(true)
+    try {
+      const response = await fetch(`/api/game/${roomCode}/essay-answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId: currentQuestion.id, ...answer })
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Jawaban uraian gagal disimpan')
+      
+      if (result.explanation) {
+        // Tampilkan PEMBAHASAN REFERENSI di modal
+        setExplanation(result.explanation)
+        setAnswerTurnAdvanced(true)
+        setEssayProgress(result.essayCount || essayProgress + 1)
+        setNotice(result.gameComplete ? 'Seluruh soal selesai!' : 'Jawaban uraian tersimpan. Lihat pembahasan referensi.')
+      } else {
+        setQuestionOpen(false)
+        setCurrentQuestion(null)
+        setEssayProgress(result.essayCount || essayProgress + 1)
+        setNotice(result.gameComplete ? 'Seluruh soal selesai!' : 'Jawaban uraian tersimpan. Giliran berpindah.')
+        await refreshGame(roomCode)
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Jawaban uraian gagal disimpan')
+    } finally {
+      isSavingEssay.current = false
+      setSavingEssay(false)
     }
   }
 
@@ -409,18 +459,22 @@ export default function Page() {
 
   function playFeedbackSound(frequency: number) {
     if (muted) return
-    const AudioContextClass = window.AudioContext
-    const context = new AudioContextClass()
-    const oscillator = context.createOscillator()
-    const gain = context.createGain()
-    oscillator.frequency.value = frequency
-    gain.gain.setValueAtTime(0.05, context.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.12)
-    oscillator.connect(gain)
-    gain.connect(context.destination)
-    oscillator.start()
-    oscillator.stop(context.currentTime + 0.12)
-    oscillator.addEventListener('ended', () => void context.close(), { once: true })
+    try {
+      const AudioContextClass = window.AudioContext
+      const context = new AudioContextClass()
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
+      oscillator.frequency.value = frequency
+      gain.gain.setValueAtTime(0.05, context.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.12)
+      oscillator.connect(gain)
+      gain.connect(context.destination)
+      oscillator.start()
+      oscillator.stop(context.currentTime + 0.12)
+      oscillator.addEventListener('ended', () => void context.close(), { once: true })
+    } catch {
+      // Audio context might fail in autoplay restricted environments
+    }
   }
 
   if (gameState === 'welcome') {
@@ -545,8 +599,10 @@ export default function Page() {
           </div>
         </div>
       )}
+
+      {/* Modal Pilihan Ganda */}
       <QuestionModal
-        open={questionOpen}
+        open={questionOpen && currentQuestion?.type !== 'essay'}
         dice={dice}
         selectedAnswer={selectedAnswer}
         feedback={feedback}
@@ -560,6 +616,19 @@ export default function Page() {
         onAnswer={answerQuestion}
         onContinue={continueAfterAnswer}
       />
+
+      {/* Modal Uraian 4 Tahap Polya */}
+      <EssayQuestionModal
+        open={questionOpen && currentQuestion?.type === 'essay'}
+        question={currentQuestion}
+        progress={questionProgressLabel || `${essayProgress}/${essayTarget}`}
+        saving={savingEssay}
+        explanation={explanation}
+        onSubmit={answerEssay}
+        onLeave={leaveGame}
+        onContinue={continueAfterAnswer}
+      />
+
       <div className="move-counter"><span>Giliran</span><strong>{turnNumber}</strong></div>
     </main>
   )

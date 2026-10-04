@@ -230,8 +230,6 @@ export default function Page() {
             setSessionStatus('QUIZ')
             if (result.question) {
               setCurrentQuestion(result.question)
-              if (result.targets) { setEssayTarget(result.targets.essay); setChoiceTarget(result.targets.multipleChoice) }
-              setQuestionProgressLabel(result.progress || (result.question.type === 'essay' ? `${essayProgress + 1}/${essayTarget}` : `${choiceProgress + 1}/${choiceTarget}`))
               setNotice('Pion belum bisa keluar. Jawab soal untuk mendapatkan poin!')
               window.setTimeout(() => setQuestionOpen(true), 500)
             } else {
@@ -346,40 +344,6 @@ export default function Page() {
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Pion gagal digerakkan. Coba lagi.')
       await refreshGame(roomCode).catch(() => setCanMovePawn(true))
-    } finally {
-      isMovingPawn.current = false
-    }
-  }
-
-  async function answerEssay(answer: EssayAnswer) {
-    if (!currentQuestion || savingEssay || isSavingEssay.current) return
-    isSavingEssay.current = true
-    setSavingEssay(true)
-    try {
-      const response = await fetch(`/api/game/${roomCode}/essay-answer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questionId: currentQuestion.id, ...answer }) })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Jawaban uraian gagal disimpan')
-      if (!response.ok) throw new Error(result.error || 'Jawaban uraian gagal disimpan')
-      
-      if (result.explanation) {
-        // Ada pembahasan — tampilkan PEMBAHASAN REFERENSI di modal (nilai tetap divalidasi guru)
-        setExplanation(result.explanation)
-        setAnswerTurnAdvanced(true)
-        setEssayProgress(result.essayCount || essayProgress + 1)
-        setNotice(result.gameComplete ? 'Seluruh soal selesai!' : 'Jawaban uraian tersimpan. Lihat pembahasan referensi.')
-      } else {
-        // Fallback: tidak ada pembahasan → langsung lanjut (tidak harusnya terjadi setelah fix API)
-        setQuestionOpen(false)
-        setCurrentQuestion(null)
-        setEssayProgress(result.essayCount || essayProgress + 1)
-        setNotice(result.gameComplete ? 'Seluruh soal selesai!' : 'Jawaban uraian tersimpan. Giliran berpindah.')
-        await refreshGame(roomCode)
-      }
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Jawaban uraian gagal disimpan')
-    } finally {
-      isSavingEssay.current = false
-      setSavingEssay(false)
     }
   }
 

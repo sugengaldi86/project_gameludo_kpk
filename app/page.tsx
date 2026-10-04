@@ -507,6 +507,18 @@ export default function Page() {
   const activeAccuracy = correctAnswers + wrongAnswers
     ? Math.round((correctAnswers / (correctAnswers + wrongAnswers)) * 100)
     : 0
+  const essayExplanation = explanation
+    ? {
+        knownInformation: explanation.knownInformation,
+        askedInformation: explanation.askedInformation,
+        strategy: explanation.strategy,
+        finalExplanation: explanation.finalExplanation,
+        solutions: explanation.solutions?.map((solution) => ({
+          method: solution.method,
+          steps: Array.isArray(solution.steps) ? solution.steps : solution.steps?.steps ?? [],
+        })),
+      }
+    : null
 
   return (
     <main className="game-shell">
@@ -623,7 +635,7 @@ export default function Page() {
         question={currentQuestion}
         progress={questionProgressLabel || `${essayProgress}/${essayTarget}`}
         saving={savingEssay}
-        explanation={explanation}
+        explanation={essayExplanation}
         onSubmit={answerEssay}
         onLeave={leaveGame}
         onContinue={continueAfterAnswer}

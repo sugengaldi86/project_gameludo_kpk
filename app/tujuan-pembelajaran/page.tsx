@@ -1,34 +1,53 @@
-import Link from 'next/link'
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, ListChecks } from 'lucide-react'
-import { supabaseServer } from '@/lib/supabase'
+import Link from "next/link";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  ListChecks,
+} from "lucide-react";
+import { supabaseServer } from "@/lib/supabase";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default async function ObjectivesPage() {
   const { data, error } = await supabaseServer()
-    .from('learning_contents')
-    .select('id,title,body,display_order')
-    .eq('content_type', 'objective')
-    .eq('is_active', true)
-    .order('display_order')
+    .from("learning_contents")
+    .select("id,title,body,display_order")
+    .eq("content_type", "objective")
+    .eq("is_active", true)
+    .order("display_order");
 
-  const objectives = data || []
+  const objectives = data || [];
 
   return (
     <main className="objective-page">
       <header className="lesson-topbar">
         <Link href="/" className="lesson-brand">
-          <span><ListChecks /></span>
-          <div><strong>Ludo KPK</strong><small>Tujuan Pembelajaran</small></div>
+          <span>
+            <ListChecks />
+          </span>
+          <div>
+            <strong>Ludo KPK</strong>
+            <small>Tujuan Pembelajaran</small>
+          </div>
         </Link>
-        <Link href="/" className="lesson-back"><ArrowLeft />Kembali ke halaman utama</Link>
+        <Link href="/" className="lesson-back">
+          <ArrowLeft />
+          Kembali ke halaman utama
+        </Link>
       </header>
 
       <section className="objective-shell">
         <div className="objective-heading">
           <p>TUJUAN PEMBELAJARAN</p>
-          <h1>Tujuan pembelajaran Ludo KPK.</h1>
-          <span>Setelah mengikuti pembelajaran dan permainan, murid diharapkan mencapai empat tujuan berikut.</span>
+          <h1>
+            Tujuan pembelajaran Ludo Kelipatan Persekutuan Terkecil (KPK).
+          </h1>
+          <span>
+            Setelah mengikuti pembelajaran dan permainan, murid diharapkan
+            mencapai empat tujuan berikut.
+          </span>
         </div>
 
         {error ? (
@@ -47,7 +66,7 @@ export default async function ObjectivesPage() {
           <div className="objective-steps">
             {objectives.map((item, index) => (
               <article key={item.id}>
-                <span>{String(index + 1).padStart(2, '0')}</span>
+                <span>{String(index + 1).padStart(2, "0")}</span>
                 <div>
                   <CheckCircle2 />
                   <h2>{item.title}</h2>
@@ -59,10 +78,14 @@ export default async function ObjectivesPage() {
         )}
 
         <footer className="objective-actions">
-          <Link href="/materi"><BookOpen />Pelajari materi<ArrowRight /></Link>
+          <Link href="/materi">
+            <BookOpen />
+            Pelajari materi
+            <ArrowRight />
+          </Link>
           <Link href="/">Kembali ke halaman utama</Link>
         </footer>
       </section>
     </main>
-  )
+  );
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Bell, BookOpen, ChevronRight, CircleHelp, Dices, Gem, LogOut, Medal, MoreHorizontal, Settings, Shield, Sparkles, Star, Trophy, Volume2, VolumeX, X, Zap } from 'lucide-react'
 import { GameBoard } from '@/components/game-board'
 import { GameNavigation } from '@/components/game-navigation'
@@ -13,7 +14,8 @@ import { type NavItem, type Player, type Question } from '@/lib/game-data'
 import { initializePawns, PawnState } from '@/lib/pawn-logic'
 
 export default function Page() {
-  const [gameState, setGameState] = useState<'welcome' | 'setup' | 'playing'>('welcome')
+  const pathname = usePathname()
+  const [gameState, setGameState] = useState<'welcome' | 'setup' | 'playing'>(() => pathname === '/bermain' ? 'setup' : 'welcome')
   const [gamePlayers, setGamePlayers] = useState<Player[]>([])
   const [learningGoal, setLearningGoal] = useState('')
   const [roomCode, setRoomCode] = useState('')

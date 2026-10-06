@@ -42,7 +42,7 @@ export default async function ObjectivesPage() {
         <div className="objective-heading">
           <p>TUJUAN PEMBELAJARAN</p>
           <h1>
-            Tujuan pembelajaran Ludo Kelipatan Persekutuan Terkecil (KPK).
+            Tujuan Pembelajaran Ludo Kelipatan Persekutuan Terkecil (KPK).
           </h1>
           <span>
             Setelah mengikuti pembelajaran dan permainan, murid diharapkan

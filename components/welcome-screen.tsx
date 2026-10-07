@@ -58,7 +58,7 @@ export function WelcomeScreen({ onPlay }: { onPlay: () => void }) {
               <span>
                 <BookOpen />
                 <i>
-                  <b>Pelajari materi</b>
+                  <b>Pelajari Materi</b>
                   <small>
                     Buka halaman materi Kelipatan Persekutuan Terkecil (KPK)
                   </small>

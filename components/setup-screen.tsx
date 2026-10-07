@@ -26,6 +26,9 @@ const PLAYER_COLORS: ("blue" | "green" | "yellow" | "red")[] = [
   "red",
 ];
 
+// Ubah ke true jika alur Ringkasan Materi ingin digunakan kembali.
+const ENABLE_PREGAME_SUMMARY = false;
+
 export function SetupScreen({ onStart }: SetupScreenProps) {
   type AvailableExam = {
     id: string;
@@ -150,6 +153,15 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
 
     setError("");
 
+    if (ENABLE_PREGAME_SUMMARY) {
+      await loadPregameMaterials(newPlayers);
+      return;
+    }
+
+    await createGame(newPlayers);
+  };
+
+  async function loadPregameMaterials(players: Player[]) {
     setLoadingMaterials(true);
     try {
       const response = await fetch("/api/learning-content", {
@@ -166,7 +178,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
       if (nextMaterials.length === 0)
         throw new Error("Materi pembelajaran belum dipublikasikan oleh admin.");
       setMaterials(nextMaterials);
-      setPreparedPlayers(newPlayers);
+      setPreparedPlayers(players);
     } catch (materialError) {
       setError(
         materialError instanceof Error
@@ -176,10 +188,9 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
     } finally {
       setLoadingMaterials(false);
     }
-  };
+  }
 
-  const createGame = async () => {
-    if (!preparedPlayers) return;
+  async function createGame(players: Player[]) {
     setIsStarting(true);
     setError("");
 
@@ -188,7 +199,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          players: preparedPlayers,
+          players,
           goal,
           examId: examId || null,
         }),
@@ -223,7 +234,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
     } finally {
       setIsStarting(false);
     }
-  };
+  }
 
   if (preparedPlayers) {
     return (
@@ -273,7 +284,9 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
           <button
             className="start-game-btn"
             type="button"
-            onClick={() => void createGame()}
+            onClick={() => {
+              if (preparedPlayers) void createGame(preparedPlayers);
+            }}
             disabled={isStarting}
           >
             {isStarting ? (
@@ -460,11 +473,13 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
             <button
               className="start-game-btn"
               onClick={handleStart}
-              disabled={loadingMaterials}
+              disabled={isStarting || loadingMaterials}
             >
-              {loadingMaterials
-                ? "Memuat ringkasan materi..."
-                : "Mulai Bermain"}
+              {isStarting
+                ? "Menyiapkan permainan..."
+                : loadingMaterials
+                  ? "Memuat ringkasan materi..."
+                  : "Mulai Bermain"}
             </button>
           </div>
 

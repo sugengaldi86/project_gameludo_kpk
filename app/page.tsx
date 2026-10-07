@@ -13,6 +13,15 @@ import { WelcomeScreen } from '@/components/welcome-screen'
 import { type NavItem, type Player, type Question } from '@/lib/game-data'
 import { initializePawns, PawnState } from '@/lib/pawn-logic'
 
+type GameExplanation = NonNullable<Parameters<typeof QuestionModal>[0]['explanation']> & {
+  knownInformationImageUrl?: string | null
+  askedInformationImageUrl?: string | null
+  strategyImageUrl?: string | null
+  solution?: string | null
+  solutionImageUrl?: string | null
+  finalExplanationImageUrl?: string | null
+}
+
 export default function Page() {
   const pathname = usePathname()
   const [gameState, setGameState] = useState<'welcome' | 'setup' | 'playing'>(() => pathname === '/bermain' ? 'setup' : 'welcome')
@@ -38,7 +47,7 @@ export default function Page() {
   const [feedback, setFeedback] = useState('')
   const [correctOption, setCorrectOption] = useState<string | null>(null)
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null)
-  const [explanation, setExplanation] = useState<Parameters<typeof QuestionModal>[0]['explanation']>(null)
+  const [explanation, setExplanation] = useState<GameExplanation | null>(null)
   const [muted, setMuted] = useState(false)
   const [copied, setCopied] = useState(false)
   const [activeNav, setActiveNav] = useState('Game')
@@ -512,9 +521,15 @@ export default function Page() {
   const essayExplanation = explanation
     ? {
         knownInformation: explanation.knownInformation,
+        knownInformationImageUrl: explanation.knownInformationImageUrl,
         askedInformation: explanation.askedInformation,
+        askedInformationImageUrl: explanation.askedInformationImageUrl,
         strategy: explanation.strategy,
+        strategyImageUrl: explanation.strategyImageUrl,
+        solution: explanation.solution,
+        solutionImageUrl: explanation.solutionImageUrl,
         finalExplanation: explanation.finalExplanation,
+        finalExplanationImageUrl: explanation.finalExplanationImageUrl,
         solutions: explanation.solutions?.map((solution) => ({
           method: solution.method,
           steps: Array.isArray(solution.steps) ? solution.steps : solution.steps?.steps ?? [],

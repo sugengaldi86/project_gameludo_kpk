@@ -18,7 +18,7 @@ export async function GET() {
     const supabase = supabaseServer()
     const [contents, essayResult] = await Promise.all([
       supabase.from('learning_contents').select('*').order('content_type').order('display_order'),
-      supabase.from('questions').select('id,question_code,story,answer_know,answer_asked,answer_plan,answer_solution,answer_check,score_weight,display_order,is_active,difficulty,operand_count,context_type').eq('question_type', 'essay').order('display_order'),
+      supabase.from('questions').select('id,question_code,story,answer_know,answer_asked,answer_plan,answer_solution,answer_check,answer_know_image_url,answer_asked_image_url,answer_plan_image_url,answer_solution_image_url,answer_check_image_url,score_weight,display_order,is_active,difficulty,operand_count,context_type').eq('question_type', 'essay').order('display_order'),
     ])
     let essayError = essayResult.error
     let essayData = essayResult.data
@@ -76,7 +76,13 @@ export async function POST(request: Request) {
         final_explanation: String(body.answer_check || '').trim(),
         answer_know: String(body.answer_know || '').trim(), answer_asked: String(body.answer_asked || '').trim(),
         answer_plan: String(body.answer_plan || '').trim(), answer_solution: String(body.answer_solution || '').trim(),
-        answer_check: String(body.answer_check || '').trim(), score_weight: Math.max(1, Number(body.score_weight) || 10),
+        answer_check: String(body.answer_check || '').trim(),
+        answer_know_image_url: body.answer_know_image_url ? String(body.answer_know_image_url).trim() : null,
+        answer_asked_image_url: body.answer_asked_image_url ? String(body.answer_asked_image_url).trim() : null,
+        answer_plan_image_url: body.answer_plan_image_url ? String(body.answer_plan_image_url).trim() : null,
+        answer_solution_image_url: body.answer_solution_image_url ? String(body.answer_solution_image_url).trim() : null,
+        answer_check_image_url: body.answer_check_image_url ? String(body.answer_check_image_url).trim() : null,
+        score_weight: Math.max(1, Number(body.score_weight) || 10),
         display_order: Number(body.display_order) || 0, is_active: body.is_active !== false,
       }
       const payload = body.id ? commonPayload : {

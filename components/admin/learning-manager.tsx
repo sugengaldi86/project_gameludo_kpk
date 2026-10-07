@@ -1,14 +1,23 @@
+/* eslint-disable @next/next/no-img-element */
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { BookOpen, GraduationCap, Pencil, Plus, RotateCcw, Save, X } from 'lucide-react'
+import { BookOpen, GraduationCap, ImageUp, Pencil, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react'
 
 type Content = { id?: string; content_type: 'objective' | 'material'; title: string; body: string; image_url: string | null; display_order: number; show_in_briefing: boolean; is_active: boolean }
-type Essay = { id?: string; question_code: string; story: string; answer_know: string; answer_asked: string; answer_plan: string; answer_solution: string; answer_check: string; score_weight: number; display_order: number; difficulty: string; operand_count: number; is_active: boolean }
+type EssayImageKey = 'answer_know_image_url' | 'answer_asked_image_url' | 'answer_plan_image_url' | 'answer_solution_image_url' | 'answer_check_image_url'
+type Essay = { id?: string; question_code: string; story: string; answer_know: string; answer_asked: string; answer_plan: string; answer_solution: string; answer_check: string; answer_know_image_url: string | null; answer_asked_image_url: string | null; answer_plan_image_url: string | null; answer_solution_image_url: string | null; answer_check_image_url: string | null; score_weight: number; display_order: number; difficulty: string; operand_count: number; is_active: boolean }
 type LearningResponse = { error?: string; data?: { contents: Content[]; essays: Essay[] } }
 
 const emptyContent: Content = { content_type: 'material', title: '', body: '', image_url: null, display_order: 0, show_in_briefing: true, is_active: true }
-const emptyEssay: Essay = { question_code: '', story: '', answer_know: '', answer_asked: '', answer_plan: '', answer_solution: '', answer_check: '', score_weight: 10, display_order: 0, difficulty: 'sedang', operand_count: 2, is_active: true }
+const emptyEssay: Essay = { question_code: '', story: '', answer_know: '', answer_asked: '', answer_plan: '', answer_solution: '', answer_check: '', answer_know_image_url: null, answer_asked_image_url: null, answer_plan_image_url: null, answer_solution_image_url: null, answer_check_image_url: null, score_weight: 10, display_order: 0, difficulty: 'sedang', operand_count: 2, is_active: true }
+const essayStages = [
+  { textKey: 'answer_know', imageKey: 'answer_know_image_url', label: 'Tahap 1 · Acuan Diketahui' },
+  { textKey: 'answer_asked', imageKey: 'answer_asked_image_url', label: 'Tahap 1 · Acuan Ditanyakan' },
+  { textKey: 'answer_plan', imageKey: 'answer_plan_image_url', label: 'Tahap 2 · Acuan Rencana Pemecahan' },
+  { textKey: 'answer_solution', imageKey: 'answer_solution_image_url', label: 'Tahap 3 · Acuan Pelaksanaan Rencana' },
+  { textKey: 'answer_check', imageKey: 'answer_check_image_url', label: 'Tahap 4 · Acuan Pemeriksaan Kembali' },
+] as const
 
 async function readResponse(response: Response): Promise<LearningResponse> {
   const text = await response.text()
@@ -50,6 +59,11 @@ function normalizeEssay(item: Essay): Essay {
     answer_plan: item.answer_plan || '',
     answer_solution: item.answer_solution || '',
     answer_check: item.answer_check || '',
+    answer_know_image_url: item.answer_know_image_url || null,
+    answer_asked_image_url: item.answer_asked_image_url || null,
+    answer_plan_image_url: item.answer_plan_image_url || null,
+    answer_solution_image_url: item.answer_solution_image_url || null,
+    answer_check_image_url: item.answer_check_image_url || null,
     score_weight: Number(item.score_weight) || 10,
     display_order: Number(item.display_order) || 0,
     difficulty,
@@ -65,6 +79,7 @@ export function LearningManager() {
   const [essay, setEssay] = useState<Essay | null>(null)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploadingField, setUploadingField] = useState<string | null>(null)
   const [showInactiveContents, setShowInactiveContents] = useState(false)
   const [showInactiveEssays, setShowInactiveEssays] = useState(false)
   const contentFormRef = useRef<HTMLFormElement>(null)
@@ -114,6 +129,22 @@ export function LearningManager() {
       await load()
     } catch (saveError) { setError(errorMessage(saveError, 'Gagal menyimpan')) }
     finally { setSaving(false) }
+  }
+
+  async function uploadImage(file: File, target: 'content' | EssayImageKey) {
+    setUploadingField(target)
+    setError('')
+    try {
+      const data = new FormData()
+      data.append('file', file)
+      const response = await fetch('/api/admin/uploads', { method: 'POST', body: data })
+      const result = await response.json() as { error?: string; data?: { url?: string } }
+      if (!response.ok || !result.data?.url) throw new Error(result.error || 'Gambar gagal diunggah')
+      const url = result.data.url
+      if (target === 'content') setContent(current => current ? { ...current, image_url: url } : current)
+      else setEssay(current => current ? { ...current, [target]: url } : current)
+    } catch (uploadError) { setError(errorMessage(uploadError, 'Gambar gagal diunggah')) }
+    finally { setUploadingField(null) }
   }
 
   async function deactivate(entity: 'content' | 'essay', id?: string) {
@@ -166,6 +197,14 @@ export function LearningManager() {
       <label>Judul<input required value={content.title} onChange={event => setContent({ ...content, title: event.target.value })} /></label>
       <label>Isi<textarea required rows={6} value={content.body} onChange={event => setContent({ ...content, body: event.target.value })} /></label>
       <label>URL gambar (opsional)<input type="url" value={content.image_url || ''} onChange={event => setContent({ ...content, image_url: event.target.value })} /></label>
+      <div className="admin-image-editor">
+        {content.image_url && <img src={content.image_url} alt={`Preview ${content.title || 'materi'}`} />}
+        <div className="admin-image-actions">
+          <label className="admin-secondary-button"><ImageUp />{uploadingField === 'content' ? 'Mengunggah...' : content.image_url ? 'Ganti Gambar' : 'Tambah Gambar'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(uploadingField)} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadImage(file, 'content'); event.target.value = '' }} /></label>
+          {content.image_url && <button type="button" className="admin-secondary-button danger" onClick={() => setContent({ ...content, image_url: null })}><Trash2 />Hapus Gambar</button>}
+        </div>
+        <small>JPG, PNG, atau WebP · maksimal 3 MB.</small>
+      </div>
       {content.content_type === 'material' && <label className="admin-switch-row"><input type="checkbox" checked={content.show_in_briefing} onChange={event => setContent({ ...content, show_in_briefing: event.target.checked })} /><span><strong>Tampilkan pada ringkasan sebelum game</strong><small>Materi lengkap tetap tersedia pada halaman Materi.</small></span></label>}
       <label className="admin-switch-row"><input type="checkbox" checked={content.is_active} onChange={event => setContent({ ...content, is_active: event.target.checked })} /><span><strong>Konten aktif</strong><small>Aktifkan kembali konten yang sebelumnya dinonaktifkan.</small></span></label>
       <div className="admin-form-actions"><button type="button" className="admin-secondary-button" onClick={() => setContent(null)}>Batal</button><button className="admin-primary-button" disabled={saving}><Save />{saving ? 'Menyimpan...' : 'Simpan'}</button></div>
@@ -192,7 +231,7 @@ export function LearningManager() {
         <label>Urutan<input type="number" value={essay.display_order} onChange={event => setEssay({ ...essay, display_order: Number(event.target.value) })} /></label>
       </div>
       <label>Teks soal<textarea required minLength={20} rows={4} value={essay.story} onChange={event => setEssay({ ...essay, story: event.target.value })} /></label>
-      <div className="admin-form-grid two">{([['answer_know', 'Tahap 1 · Acuan Diketahui'], ['answer_asked', 'Tahap 1 · Acuan Ditanyakan'], ['answer_plan', 'Tahap 2 · Acuan Rencana Pemecahan'], ['answer_solution', 'Tahap 3 · Acuan Pelaksanaan Rencana'], ['answer_check', 'Tahap 4 · Acuan Pemeriksaan Kembali']] as const).map(([key, label]) => <label key={key}>{label}<textarea rows={4} value={essay[key] || ''} onChange={event => setEssay({ ...essay, [key]: event.target.value })} /></label>)}</div>
+      <div className="admin-form-grid two">{essayStages.map(stage => <div className={`admin-essay-reference-editor${stage.textKey === 'answer_solution' ? ' highlighted' : ''}`} key={stage.textKey}><label>{stage.label}<textarea rows={4} value={essay[stage.textKey] || ''} onChange={event => setEssay({ ...essay, [stage.textKey]: event.target.value })} /></label><label>URL gambar (opsional)<input type="url" value={essay[stage.imageKey] || ''} onChange={event => setEssay({ ...essay, [stage.imageKey]: event.target.value || null })} /></label>{essay[stage.imageKey] && <img src={essay[stage.imageKey]!} alt={`Preview ${stage.label}`} />}<div className="admin-image-actions"><label className="admin-secondary-button"><ImageUp />{uploadingField === stage.imageKey ? 'Mengunggah...' : essay[stage.imageKey] ? 'Ganti Foto' : 'Tambah Foto'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(uploadingField)} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadImage(file, stage.imageKey); event.target.value = '' }} /></label>{essay[stage.imageKey] && <button type="button" className="admin-secondary-button danger" onClick={() => setEssay({ ...essay, [stage.imageKey]: null })}><Trash2 />Hapus Foto</button>}</div><small>Foto opsional; teks dan foto dapat digunakan bersamaan.</small></div>)}</div>
       <div className="admin-form-grid two"><label>Bobot nilai<input type="number" min="1" value={essay.score_weight} onChange={event => setEssay({ ...essay, score_weight: Number(event.target.value) })} /></label><label className="admin-switch-row"><input type="checkbox" checked={essay.is_active} onChange={event => setEssay({ ...essay, is_active: event.target.checked })} /><span><strong>Soal aktif</strong><small>Aktifkan kembali soal yang dinonaktifkan.</small></span></label></div>
       <div className="admin-form-actions"><button type="button" className="admin-secondary-button" onClick={() => setEssay(null)}>Batal</button><button className="admin-primary-button" disabled={saving}><Save />{saving ? 'Menyimpan...' : 'Simpan soal'}</button></div>
     </section></form>}

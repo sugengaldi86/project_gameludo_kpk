@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, type FormEvent } from "react";
@@ -32,9 +33,15 @@ const METHODS: Array<{ value: SolutionMethod; label: string }> = [
 
 type Explanation = {
   knownInformation?: string | null;
+  knownInformationImageUrl?: string | null;
   askedInformation?: string | null;
+  askedInformationImageUrl?: string | null;
   strategy?: string | null;
+  strategyImageUrl?: string | null;
+  solution?: string | null;
+  solutionImageUrl?: string | null;
   finalExplanation?: string | null;
+  finalExplanationImageUrl?: string | null;
   solutions?: Array<{ method: string; steps: string[] }>;
 };
 
@@ -224,47 +231,46 @@ export function EssayQuestionModal({
           </div>
           <div className="essay-reference">
             <span className="essay-reference-label">PEMBAHASAN REFERENSI</span>
-            {explanation.knownInformation && (
+            {(explanation.knownInformation || explanation.knownInformationImageUrl) && (
               <section>
-                <p>
-                  <strong>Diketahui: </strong>
-                  {explanation.knownInformation}
-                </p>
-                {explanation.askedInformation && (
-                  <p>
-                    <strong>Ditanyakan: </strong>
-                    {explanation.askedInformation}
-                  </p>
-                )}
-                {explanation.strategy && (
-                  <p>
-                    <strong>Strategi: </strong>
-                    {explanation.strategy}
-                  </p>
-                )}
+                <b>Tahap 1 · Diketahui</b>
+                {explanation.knownInformation && <p>{explanation.knownInformation}</p>}
+                {explanation.knownInformationImageUrl && <img className="essay-reference-image" src={explanation.knownInformationImageUrl} alt="Ilustrasi informasi yang diketahui" />}
               </section>
             )}
-            {explanation.solutions?.map((solution) => (
-              <section key={solution.method}>
-                <b>
-                  {METHODS.find((method) => method.value === solution.method)
-                    ?.label || "Melaksanakan rencana"}
-                  :
-                </b>
-                {solution.steps.map((step, index) => (
-                  <p key={index}>{step}</p>
-                ))}
-              </section>
-            ))}
-            {explanation.finalExplanation && (
+            {(explanation.askedInformation || explanation.askedInformationImageUrl) && (
               <section>
+                <b>Tahap 1 · Ditanyakan</b>
+                {explanation.askedInformation && <p>{explanation.askedInformation}</p>}
+                {explanation.askedInformationImageUrl && <img className="essay-reference-image" src={explanation.askedInformationImageUrl} alt="Ilustrasi informasi yang ditanyakan" />}
+              </section>
+            )}
+            {(explanation.strategy || explanation.strategyImageUrl) && (
+              <section>
+                <b>Tahap 2 · Rencana Pemecahan</b>
+                {explanation.strategy && <p>{explanation.strategy}</p>}
+                {explanation.strategyImageUrl && <img className="essay-reference-image" src={explanation.strategyImageUrl} alt="Ilustrasi rencana pemecahan" />}
+              </section>
+            )}
+            {(explanation.solution || explanation.solutionImageUrl || explanation.solutions?.length) && (
+              <section>
+                <b>Tahap 3 · Pelaksanaan Rencana</b>
+                {explanation.solution && <p>{explanation.solution}</p>}
+                {explanation.solutions?.map((solution) => <div className="essay-reference-method" key={solution.method}><strong>{METHODS.find((method) => method.value === solution.method)?.label || "Cara penyelesaian"}</strong>{solution.steps.map((step, index) => <p key={index}>{step}</p>)}</div>)}
+                {explanation.solutionImageUrl && <img className="essay-reference-image" src={explanation.solutionImageUrl} alt="Ilustrasi pelaksanaan rencana" />}
+              </section>
+            )}
+            {(explanation.finalExplanation || explanation.finalExplanationImageUrl) && (
+              <section>
+                <b>Tahap 4 · Pemeriksaan Kembali</b>
                 <p>
                   <strong className="essay-final-answer">✅ Jawaban akhir: </strong>
                   {explanation.finalExplanation}
                 </p>
+                {explanation.finalExplanationImageUrl && <img className="essay-reference-image" src={explanation.finalExplanationImageUrl} alt="Ilustrasi pemeriksaan kembali" />}
               </section>
             )}
-            {!explanation.knownInformation && !explanation.finalExplanation && !explanation.solutions?.length && (
+            {!explanation.knownInformation && !explanation.knownInformationImageUrl && !explanation.askedInformation && !explanation.askedInformationImageUrl && !explanation.strategy && !explanation.strategyImageUrl && !explanation.finalExplanation && !explanation.finalExplanationImageUrl && !explanation.solution && !explanation.solutionImageUrl && !explanation.solutions?.length && (
               <section>
                 <p>Pembahasan belum tersedia untuk soal ini.</p>
               </section>

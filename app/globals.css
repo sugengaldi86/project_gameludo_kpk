@@ -878,6 +878,9 @@ img,svg{max-width:100%}input,select,textarea,button{max-width:100%}.welcome-card
 .essay-final-answer {
   color: #1a7a3a !important;
 }
+.essay-reference-image { display: block; width: min(100%,680px); max-height: 420px; margin-top: 12px; border: 1px solid #dce5f2; border-radius: 12px; background: #f8faff; object-fit: contain; }
+.essay-reference-method { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #f5f8fe; }
+.essay-reference-method > strong { display: block; margin-bottom: 5px; color: #3156e8; font-size: 11px; }
 
 @media (max-width: 640px) {
   .essay-feedback-heading { padding: 22px 20px 18px; gap: 12px; }

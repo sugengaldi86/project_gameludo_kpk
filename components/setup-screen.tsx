@@ -110,7 +110,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
   const handleExamChange = (value: string) => {
     setExamId(value);
     const selected = exams.find((exam) => exam.id === value);
-    if (selected?.learning_goal) setGoal(selected.learning_goal);
+    setGoal(selected?.learning_goal || "");
   };
 
   const handleNameChange = (index: number, value: string) => {
@@ -405,17 +405,6 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
                   ) : null;
                 })()}
             </div>
-            <div className="form-group">
-              <label>Tujuan pembelajaran</label>
-              <input
-                type="text"
-                placeholder="Misal: Memahami konsep KPK"
-                value={goal}
-                onChange={(e) => setGoal(e.target.value)}
-                className="setup-input"
-              />
-            </div>
-
             <div className="form-group">
               <label>Pilih Jumlah Pemain</label>
               <div className="player-count-buttons">

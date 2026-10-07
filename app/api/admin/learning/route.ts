@@ -22,10 +22,26 @@ export async function GET() {
     ])
     let essayError = essayResult.error
     let essayData = essayResult.data
-    if (missingColumn(essayResult.error, 'answer_plan')) {
+    const missingEssayExtension = [
+      'answer_plan',
+      'answer_know_image_url',
+      'answer_asked_image_url',
+      'answer_plan_image_url',
+      'answer_solution_image_url',
+      'answer_check_image_url',
+    ].some(column => missingColumn(essayResult.error, column))
+    if (missingEssayExtension) {
       const legacyResult = await supabase.from('questions').select('id,question_code,story,answer_know,answer_asked,strategy,answer_solution,answer_check,score_weight,display_order,is_active,difficulty,operand_count,context_type').eq('question_type', 'essay').order('display_order')
       essayError = legacyResult.error
-      essayData = legacyResult.data?.map(item => ({ ...item, answer_plan: item.strategy || '' })) || null
+      essayData = legacyResult.data?.map(item => ({
+        ...item,
+        answer_plan: item.strategy || '',
+        answer_know_image_url: null,
+        answer_asked_image_url: null,
+        answer_plan_image_url: null,
+        answer_solution_image_url: null,
+        answer_check_image_url: null,
+      })) || null
     }
     const error = contents.error || essayError
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

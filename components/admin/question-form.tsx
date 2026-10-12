@@ -1,9 +1,10 @@
 'use client'
+/* eslint-disable @next/next/no-img-element */
 
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { ArrowLeft, Calculator, CheckCircle2, Save } from 'lucide-react'
+import { ArrowLeft, Calculator, CheckCircle2, ImageUp, Save, Trash2 } from 'lucide-react'
 import type { AdminQuestion, OptionKey, QuestionInput } from '@/lib/admin-types'
 import { calculateLcm } from '@/lib/question-validation'
 
@@ -14,7 +15,7 @@ const emptyQuestion: QuestionInput = {
   known_information: '', asked_information: '', strategy: 'KPK',
   number_a: 2, number_b: 3, number_c: null, correct_value: 6,
   operand_count: 2, context_type: 'kontekstual',
-  correct_option: 'A', answer_solution: '', final_explanation: '', is_active: true,
+  correct_option: 'A', answer_solution: '', answer_solution_image_url: null, final_explanation: '', is_active: true,
   question_options: optionKeys.map((key) => ({ option_key: key, option_text: '', is_correct: key === 'A' })),
   question_solutions: [
     { method: 'multiples', steps: [], result: 6 },
@@ -29,6 +30,7 @@ function normalizeQuestion(question: AdminQuestion): QuestionInput {
     known_information: question.known_information || '',
     asked_information: question.asked_information || '',
     answer_solution: question.answer_solution || '',
+    answer_solution_image_url: question.answer_solution_image_url || null,
     final_explanation: question.final_explanation || '',
     question_options: optionKeys.map((key) => question.question_options.find((option) => option.option_key === key) || { option_key: key, option_text: '', is_correct: key === question.correct_option }),
     question_solutions: ['multiples', 'prime_factorization'].map((method) => question.question_solutions.find((solution) => solution.method === method) || { method, steps: [], result: question.correct_value }) as QuestionInput['question_solutions'],
@@ -48,6 +50,7 @@ export function QuestionForm({ questionId }: { questionId?: string }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [uploadingSolutionImage, setUploadingSolutionImage] = useState(false)
 
   const calculatedLcm = useMemo(() => calculateLcm([form.number_a, form.number_b, ...(form.number_c ? [form.number_c] : [])].filter((number) => number > 0)), [form.number_a, form.number_b, form.number_c])
 
@@ -86,6 +89,23 @@ export function QuestionForm({ questionId }: { questionId?: string }) {
     }))
   }
 
+  async function uploadSolutionImage(file: File) {
+    setUploadingSolutionImage(true)
+    setError('')
+    try {
+      const data = new FormData()
+      data.append('file', file)
+      const response = await fetch('/api/admin/uploads', { method: 'POST', body: data })
+      const result = await response.json() as { error?: string; data?: { url?: string } }
+      if (!response.ok || !result.data?.url) throw new Error(result.error || 'Gambar gagal diunggah')
+      update('answer_solution_image_url', result.data.url)
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Gambar gagal diunggah')
+    } finally {
+      setUploadingSolutionImage(false)
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaving(true)
@@ -119,7 +139,7 @@ export function QuestionForm({ questionId }: { questionId?: string }) {
 
       <section className="admin-form-section"><div className="admin-form-section-heading"><span>2</span><div><h2>Bilangan & strategi KPK</h2><p>Sistem menghitung nilai KPK secara otomatis.</p></div></div><div className="admin-form-grid four"><label>Bilangan A<input type="number" min="1" value={form.number_a} onChange={(event) => update('number_a', Number(event.target.value))} required /></label><label>Bilangan B<input type="number" min="1" value={form.number_b} onChange={(event) => update('number_b', Number(event.target.value))} required /></label><label>Bilangan C <small>(opsional)</small><input type="number" min="1" value={form.number_c ?? ''} onChange={(event) => update('number_c', event.target.value ? Number(event.target.value) : null)} /></label><div className="admin-lcm-preview"><Calculator /><span>KPK Otomatis<strong>{calculatedLcm}</strong></span></div></div><div className="admin-form-grid two"><label>Diketahui<textarea rows={3} value={form.known_information} onChange={(event) => update('known_information', event.target.value)} required /></label><label>Ditanyakan<textarea rows={3} value={form.asked_information} onChange={(event) => update('asked_information', event.target.value)} required /></label></div><label>Strategi benar<select value={form.strategy} onChange={(event) => update('strategy', event.target.value)}><option value="KPK">KPK</option><option value="FPB">FPB</option></select></label></section>
 
-      <section className="admin-form-section"><div className="admin-form-section-heading"><span>3</span><div><h2>Jenis & format jawaban</h2><p>Pilih apakah soal ini pilihan ganda atau uraian.</p></div></div><div className="admin-form-grid two"><label>Jenis soal<select value={form.question_type} onChange={(event) => update('question_type', event.target.value as QuestionInput['question_type'])}><option value="multiple_choice">Pilihan ganda</option><option value="essay">Uraian</option></select></label><label>Contoh format jawaban{form.question_type === 'essay' ? <small>Jawaban tidak memakai A/B/C/D</small> : <small>Gunakan empat pilihan A–D</small>}</label></div>{form.question_type === 'multiple_choice' ? <><div className="admin-option-editor">{form.question_options.map((option) => <label key={option.option_key} className={option.is_correct ? 'is-correct' : ''}><input type="radio" name="correct-option" checked={option.is_correct} onChange={() => setCorrectOption(option.option_key)} /><strong>{option.option_key}</strong><input value={option.option_text} onChange={(event) => updateOption(option.option_key, event.target.value)} placeholder={`Pilihan ${option.option_key}`} required /><span>{option.is_correct ? 'Jawaban benar' : 'Tandai benar'}</span></label>)}</div><label>Tahap 3 · Acuan Pelaksanaan Rencana<textarea rows={5} value={form.answer_solution} onChange={(event) => update('answer_solution', event.target.value)} placeholder="Tulis proses penyelesaian yang akan ditampilkan pada feedback siswa." required /></label></> : <div className="admin-form-grid one"><label>Jawaban uraian<textarea rows={5} value={form.final_explanation} onChange={(event) => update('final_explanation', event.target.value)} placeholder="Tulis pembahasan yang akan ditampilkan setelah murid mengirim jawaban uraian" required /></label></div>}</section>
+      <section className="admin-form-section"><div className="admin-form-section-heading"><span>3</span><div><h2>Jenis & format jawaban</h2><p>Pilih apakah soal ini pilihan ganda atau uraian.</p></div></div><div className="admin-form-grid two"><label>Jenis soal<select value={form.question_type} onChange={(event) => update('question_type', event.target.value as QuestionInput['question_type'])}><option value="multiple_choice">Pilihan ganda</option><option value="essay">Uraian</option></select></label><label>Contoh format jawaban{form.question_type === 'essay' ? <small>Jawaban tidak memakai A/B/C/D</small> : <small>Gunakan empat pilihan A–D</small>}</label></div>{form.question_type === 'multiple_choice' ? <><div className="admin-option-editor">{form.question_options.map((option) => <label key={option.option_key} className={option.is_correct ? 'is-correct' : ''}><input type="radio" name="correct-option" checked={option.is_correct} onChange={() => setCorrectOption(option.option_key)} /><strong>{option.option_key}</strong><input value={option.option_text} onChange={(event) => updateOption(option.option_key, event.target.value)} placeholder={`Pilihan ${option.option_key}`} required /><span>{option.is_correct ? 'Jawaban benar' : 'Tandai benar'}</span></label>)}</div><label>Pembahasan untuk feedback siswa<textarea rows={5} value={form.answer_solution} onChange={(event) => update('answer_solution', event.target.value)} placeholder="Tulis proses penyelesaian yang akan ditampilkan pada feedback siswa." required /></label><label>URL gambar pembahasan (opsional)<input type="url" value={form.answer_solution_image_url || ''} onChange={(event) => update('answer_solution_image_url', event.target.value || null)} /></label><div className="admin-image-editor">{form.answer_solution_image_url && <img src={form.answer_solution_image_url} alt="Preview gambar pembahasan" />}<div className="admin-image-actions"><label className="admin-secondary-button"><ImageUp />{uploadingSolutionImage ? 'Mengunggah...' : form.answer_solution_image_url ? 'Ganti Gambar' : 'Tambah Gambar'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploadingSolutionImage} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadSolutionImage(file); event.target.value = '' }} /></label>{form.answer_solution_image_url && <button type="button" className="admin-secondary-button danger" onClick={() => update('answer_solution_image_url', null)}><Trash2 />Hapus Gambar</button>}</div><small>Gambar opsional; teks dan gambar dapat digunakan bersamaan.</small></div></> : <div className="admin-form-grid one"><label>Jawaban uraian<textarea rows={5} value={form.final_explanation} onChange={(event) => update('final_explanation', event.target.value)} placeholder="Tulis pembahasan yang akan ditampilkan setelah murid mengirim jawaban uraian" required /></label></div>}</section>
 
       <section className="admin-form-section"><div className="admin-form-section-heading"><span>4</span><div><h2>Pembahasan Polya</h2><p>Tulis satu langkah per baris agar mudah ditampilkan pada modal feedback.</p></div></div><div className="admin-form-grid two"><label>Langkah Kelipatan<textarea rows={7} value={form.question_solutions.find((solution) => solution.method === 'multiples')?.steps.join('\n') || ''} onChange={(event) => updateSolution('multiples', event.target.value)} placeholder={'Kelipatan 4: 4, 8, 12...\nKelipatan 6: 6, 12...\nKPK = 12'} required /></label><label>Langkah Faktorisasi Prima<textarea rows={7} value={form.question_solutions.find((solution) => solution.method === 'prime_factorization')?.steps.join('\n') || ''} onChange={(event) => updateSolution('prime_factorization', event.target.value)} placeholder={'4 = 2²\n6 = 2 × 3\nKPK = 2² × 3 = 12'} required /></label></div><label>Jawaban akhir & cek ulang<textarea rows={4} value={form.final_explanation} onChange={(event) => update('final_explanation', event.target.value)} placeholder="Mereka akan bertemu kembali setelah 12 hari. Angka 12 habis dibagi 4 dan 6." required /></label><label className="admin-switch-row"><input type="checkbox" checked={form.is_active} onChange={(event) => update('is_active', event.target.checked)} /><span><strong>Aktifkan soal</strong><small>Soal aktif dapat dipilih dalam permainan.</small></span></label></section>
 

@@ -64,7 +64,7 @@ export async function POST(request: Request, { params }: Context) {
     if (isEssayQuestion) {
       const { data: question, error: questionError } = await supabase
         .from('questions')
-        .select('id, question_code, question_type, known_information, asked_information, strategy, answer_solution, final_explanation')
+        .select('id, question_code, question_type, known_information, asked_information, strategy, answer_solution, answer_solution_image_url, final_explanation')
         .eq('id', body.questionId)
         .single()
 
@@ -96,6 +96,7 @@ export async function POST(request: Request, { params }: Context) {
           askedInformation: question.asked_information,
           strategy: question.strategy,
           solution: question.answer_solution,
+          solutionImageUrl: question.answer_solution_image_url,
           finalExplanation: question.final_explanation,
         },
         nextTurn: answer.nextTurn,
@@ -119,7 +120,7 @@ export async function POST(request: Request, { params }: Context) {
     const answerPayload = typeof answer === 'object' && answer ? answer as Record<string, unknown> : {}
     const { data: question } = await supabase
       .from('questions')
-      .select('known_information,asked_information,strategy,answer_solution,final_explanation')
+      .select('known_information,asked_information,strategy,answer_solution,answer_solution_image_url,final_explanation')
       .eq('id', body.questionId)
       .maybeSingle()
     answerPayload.explanation = {
@@ -127,6 +128,7 @@ export async function POST(request: Request, { params }: Context) {
       askedInformation: question?.asked_information || null,
       strategy: question?.strategy || null,
       solution: question?.answer_solution || null,
+      solutionImageUrl: question?.answer_solution_image_url || null,
       finalExplanation: question?.final_explanation || null,
     }
 

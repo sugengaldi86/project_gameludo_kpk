@@ -1,4 +1,5 @@
 'use client'
+/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from 'react'
 import { Dices, X, CheckCircle2, XCircle, ChevronRight, LogOut } from 'lucide-react'
@@ -11,7 +12,7 @@ type QuestionModalProps = {
   feedback: string
   correctOption?: string | null
   isCorrect?: boolean | null
-  explanation?: { knownInformation?: string; askedInformation?: string; strategy?: string; solution?: string; finalExplanation?: string } | null
+  explanation?: { knownInformation?: string; askedInformation?: string; strategy?: string; solution?: string; solutionImageUrl?: string; finalExplanation?: string } | null
   question: Question | null
   questionTimeSeconds?: number | null
   onClose: () => void
@@ -142,7 +143,7 @@ export function QuestionModal({
                 {explanation.knownInformation && <p><b>Diketahui:</b> {explanation.knownInformation}</p>}
                 {explanation.askedInformation && <p><b>Ditanyakan:</b> {explanation.askedInformation}</p>}
                 {explanation.strategy && <p><b>Strategi:</b> {explanation.strategy}</p>}
-                {explanation.solution && <section className="answer-explanation-stage"><b>Tahap 3 · Acuan Pelaksanaan Rencana</b><p>{explanation.solution}</p></section>}
+                {(explanation.solution || explanation.solutionImageUrl) && <section className="answer-explanation-stage">{explanation.solution && <p>{explanation.solution}</p>}{explanation.solutionImageUrl && <img className="answer-explanation-image" src={explanation.solutionImageUrl} alt="Ilustrasi pembahasan" />}</section>}
                 {explanation.finalExplanation && <p style={{ marginTop: '0.5rem' }}><b>✅ Jawaban akhir:</b> {explanation.finalExplanation}</p>}
               </div>
             )}

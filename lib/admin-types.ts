@@ -40,6 +40,7 @@ export type AdminQuestion = {
   correct_value: number
   correct_option: OptionKey
   answer_solution: string
+  answer_solution_image_url: string | null
   final_explanation: string
   is_active: boolean
   created_at: string

@@ -12,12 +12,12 @@ begin
   if p_question_id is null then
     insert into questions(
       question_code, story, difficulty, topic, known_information, asked_information,
-      strategy, answer_solution, number_a, number_b, number_c, operand_count,
+      strategy, answer_solution, answer_solution_image_url, number_a, number_b, number_c, operand_count,
       context_type, correct_value, correct_option, final_explanation, is_active
     ) values (
       p_question->>'question_code', p_question->>'story', p_question->>'difficulty', p_question->>'topic',
       p_question->>'known_information', p_question->>'asked_information', p_question->>'strategy',
-      nullif(p_question->>'answer_solution',''), (p_question->>'number_a')::integer,
+      nullif(p_question->>'answer_solution',''), nullif(p_question->>'answer_solution_image_url',''), (p_question->>'number_a')::integer,
       (p_question->>'number_b')::integer, nullif(p_question->>'number_c','')::integer,
       coalesce((p_question->>'operand_count')::integer,2), coalesce(p_question->>'context_type','kontekstual'),
       (p_question->>'correct_value')::integer, p_question->>'correct_option',
@@ -28,7 +28,8 @@ begin
       question_code=p_question->>'question_code', story=p_question->>'story', difficulty=p_question->>'difficulty',
       topic=p_question->>'topic', known_information=p_question->>'known_information',
       asked_information=p_question->>'asked_information', strategy=p_question->>'strategy',
-      answer_solution=nullif(p_question->>'answer_solution',''), number_a=(p_question->>'number_a')::integer,
+      answer_solution=nullif(p_question->>'answer_solution',''),
+      answer_solution_image_url=nullif(p_question->>'answer_solution_image_url',''), number_a=(p_question->>'number_a')::integer,
       number_b=(p_question->>'number_b')::integer, number_c=nullif(p_question->>'number_c','')::integer,
       operand_count=coalesce((p_question->>'operand_count')::integer,2),
       context_type=coalesce(p_question->>'context_type','kontekstual'),

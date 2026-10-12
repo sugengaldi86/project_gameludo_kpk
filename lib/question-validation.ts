@@ -38,6 +38,9 @@ export function validateQuestionInput(value: unknown):
   const knownInformation = String(input.known_information || '').trim()
   const askedInformation = String(input.asked_information || '').trim()
   const answerSolution = String(input.answer_solution || '').trim()
+  const answerSolutionImageUrl = typeof input.answer_solution_image_url === 'string'
+    ? input.answer_solution_image_url.trim() || null
+    : null
   const finalExplanation = String(input.final_explanation || '').trim()
 
   if (!/^Q[A-Z0-9-]{1,19}$/.test(code)) {
@@ -134,6 +137,7 @@ export function validateQuestionInput(value: unknown):
         correct_value: expectedLcm,
         correct_option: correctOption,
         answer_solution: answerSolution,
+        answer_solution_image_url: answerSolutionImageUrl,
         final_explanation: finalExplanation,
         is_active: Boolean(input.is_active),
         question_options: options.map((option) => ({
@@ -171,6 +175,7 @@ export function validateQuestionInput(value: unknown):
       correct_value: expectedLcm,
       correct_option: 'A',
       answer_solution: answerSolution,
+      answer_solution_image_url: answerSolutionImageUrl,
       final_explanation: finalExplanation,
       is_active: Boolean(input.is_active),
       question_options: [],

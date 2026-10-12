@@ -530,10 +530,6 @@ export default function Page() {
         solutionImageUrl: explanation.solutionImageUrl,
         finalExplanation: explanation.finalExplanation,
         finalExplanationImageUrl: explanation.finalExplanationImageUrl,
-        solutions: explanation.solutions?.map((solution) => ({
-          method: solution.method,
-          steps: Array.isArray(solution.steps) ? solution.steps : solution.steps?.steps ?? [],
-        })),
       }
     : null
 

@@ -64,7 +64,7 @@ export async function POST(request: Request, { params }: Context) {
     if (isEssayQuestion) {
       const { data: question, error: questionError } = await supabase
         .from('questions')
-        .select('id, question_code, question_type, known_information, asked_information, strategy, final_explanation, question_solutions(method, steps, result)')
+        .select('id, question_code, question_type, known_information, asked_information, strategy, answer_solution, final_explanation')
         .eq('id', body.questionId)
         .single()
 
@@ -83,7 +83,6 @@ export async function POST(request: Request, { params }: Context) {
         return NextResponse.json({ error: answerError?.message || 'Jawaban uraian gagal disimpan' }, { status: 409 })
       }
 
-      const solutions = Array.isArray(question.question_solutions) ? question.question_solutions : []
       return NextResponse.json({
         isCorrect: null,
         scoreAwarded: 0,
@@ -96,8 +95,8 @@ export async function POST(request: Request, { params }: Context) {
           knownInformation: question.known_information,
           askedInformation: question.asked_information,
           strategy: question.strategy,
+          solution: question.answer_solution,
           finalExplanation: question.final_explanation,
-          solutions,
         },
         nextTurn: answer.nextTurn,
       })
@@ -118,18 +117,17 @@ export async function POST(request: Request, { params }: Context) {
     if (!answer) return NextResponse.json({ alreadyAnswered: true })
 
     const answerPayload = typeof answer === 'object' && answer ? answer as Record<string, unknown> : {}
-    if (!answerPayload.explanation) {
-      const [{ data: question }, { data: solutions }] = await Promise.all([
-        supabase.from('questions').select('known_information,asked_information,strategy,final_explanation').eq('id', body.questionId).maybeSingle(),
-        supabase.from('question_solutions').select('method,steps,result').eq('question_id', body.questionId),
-      ])
-      answerPayload.explanation = {
-        knownInformation: question?.known_information || null,
-        askedInformation: question?.asked_information || null,
-        strategy: question?.strategy || null,
-        finalExplanation: question?.final_explanation || null,
-        solutions: solutions || [],
-      }
+    const { data: question } = await supabase
+      .from('questions')
+      .select('known_information,asked_information,strategy,answer_solution,final_explanation')
+      .eq('id', body.questionId)
+      .maybeSingle()
+    answerPayload.explanation = {
+      knownInformation: question?.known_information || null,
+      askedInformation: question?.asked_information || null,
+      strategy: question?.strategy || null,
+      solution: question?.answer_solution || null,
+      finalExplanation: question?.final_explanation || null,
     }
 
     const [{ count: essayCount }, { count: choiceCount }] = await Promise.all([

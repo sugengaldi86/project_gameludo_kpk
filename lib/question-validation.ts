@@ -37,6 +37,7 @@ export function validateQuestionInput(value: unknown):
   const story = String(input.story || '').trim()
   const knownInformation = String(input.known_information || '').trim()
   const askedInformation = String(input.asked_information || '').trim()
+  const answerSolution = String(input.answer_solution || '').trim()
   const finalExplanation = String(input.final_explanation || '').trim()
 
   if (!/^Q[A-Z0-9-]{1,19}$/.test(code)) {
@@ -87,6 +88,9 @@ export function validateQuestionInput(value: unknown):
   }
 
   if (questionType === 'multiple_choice') {
+    if (!answerSolution) {
+      return { success: false, error: 'Acuan pelaksanaan rencana wajib diisi' }
+    }
     if (options.length !== 4) {
       return { success: false, error: 'Soal pilihan ganda harus memiliki tepat empat pilihan jawaban' }
     }
@@ -129,6 +133,7 @@ export function validateQuestionInput(value: unknown):
         context_type: contextType,
         correct_value: expectedLcm,
         correct_option: correctOption,
+        answer_solution: answerSolution,
         final_explanation: finalExplanation,
         is_active: Boolean(input.is_active),
         question_options: options.map((option) => ({
@@ -165,6 +170,7 @@ export function validateQuestionInput(value: unknown):
       context_type: contextType,
       correct_value: expectedLcm,
       correct_option: 'A',
+      answer_solution: answerSolution,
       final_explanation: finalExplanation,
       is_active: Boolean(input.is_active),
       question_options: [],

@@ -42,7 +42,6 @@ type Explanation = {
   solutionImageUrl?: string | null;
   finalExplanation?: string | null;
   finalExplanationImageUrl?: string | null;
-  solutions?: Array<{ method: string; steps: string[] }>;
 };
 
 export function EssayQuestionModal({
@@ -73,7 +72,6 @@ export function EssayQuestionModal({
     await onSubmit(answer);
     setAnswer(EMPTY_ANSWER);
   }
-
   return (
     <div
       className="question-overlay essay-overlay"
@@ -224,57 +222,104 @@ export function EssayQuestionModal({
             <div>
               <h2 id="essay-title">Jawaban Berhasil Disimpan!</h2>
               <p>
-                Jawabanmu akan divalidasi oleh guru. Mari lihat
-                pembahasan atau kunci jawaban untuk soal ini.
+                Jawabanmu akan divalidasi oleh guru. Mari lihat pembahasan atau
+                kunci jawaban untuk soal ini.
               </p>
             </div>
           </div>
           <div className="essay-reference">
             <span className="essay-reference-label">PEMBAHASAN REFERENSI</span>
-            {(explanation.knownInformation || explanation.knownInformationImageUrl) && (
+            {(explanation.knownInformation ||
+              explanation.knownInformationImageUrl) && (
               <section>
                 <b>Tahap 1 · Diketahui</b>
-                {explanation.knownInformation && <p>{explanation.knownInformation}</p>}
-                {explanation.knownInformationImageUrl && <img className="essay-reference-image" src={explanation.knownInformationImageUrl} alt="Ilustrasi informasi yang diketahui" />}
+                {explanation.knownInformation && (
+                  <p>{explanation.knownInformation}</p>
+                )}
+                {explanation.knownInformationImageUrl && (
+                  <img
+                    className="essay-reference-image"
+                    src={explanation.knownInformationImageUrl}
+                    alt="Ilustrasi informasi yang diketahui"
+                  />
+                )}
               </section>
             )}
-            {(explanation.askedInformation || explanation.askedInformationImageUrl) && (
+            {(explanation.askedInformation ||
+              explanation.askedInformationImageUrl) && (
               <section>
                 <b>Tahap 1 · Ditanyakan</b>
-                {explanation.askedInformation && <p>{explanation.askedInformation}</p>}
-                {explanation.askedInformationImageUrl && <img className="essay-reference-image" src={explanation.askedInformationImageUrl} alt="Ilustrasi informasi yang ditanyakan" />}
+                {explanation.askedInformation && (
+                  <p>{explanation.askedInformation}</p>
+                )}
+                {explanation.askedInformationImageUrl && (
+                  <img
+                    className="essay-reference-image"
+                    src={explanation.askedInformationImageUrl}
+                    alt="Ilustrasi informasi yang ditanyakan"
+                  />
+                )}
               </section>
             )}
             {(explanation.strategy || explanation.strategyImageUrl) && (
               <section>
                 <b>Tahap 2 · Rencana Pemecahan</b>
                 {explanation.strategy && <p>{explanation.strategy}</p>}
-                {explanation.strategyImageUrl && <img className="essay-reference-image" src={explanation.strategyImageUrl} alt="Ilustrasi rencana pemecahan" />}
+                {explanation.strategyImageUrl && (
+                  <img
+                    className="essay-reference-image"
+                    src={explanation.strategyImageUrl}
+                    alt="Ilustrasi rencana pemecahan"
+                  />
+                )}
               </section>
             )}
-            {(explanation.solution || explanation.solutionImageUrl || explanation.solutions?.length) && (
+            {(explanation.solution || explanation.solutionImageUrl) && (
               <section>
                 <b>Tahap 3 · Pelaksanaan Rencana</b>
                 {explanation.solution && <p>{explanation.solution}</p>}
-                {explanation.solutions?.map((solution) => <div className="essay-reference-method" key={solution.method}><strong>{METHODS.find((method) => method.value === solution.method)?.label || "Cara penyelesaian"}</strong>{solution.steps.map((step, index) => <p key={index}>{step}</p>)}</div>)}
-                {explanation.solutionImageUrl && <img className="essay-reference-image" src={explanation.solutionImageUrl} alt="Ilustrasi pelaksanaan rencana" />}
+                {explanation.solutionImageUrl && (
+                  <img
+                    className="essay-reference-image"
+                    src={explanation.solutionImageUrl}
+                    alt="Ilustrasi pelaksanaan rencana"
+                  />
+                )}
               </section>
             )}
-            {(explanation.finalExplanation || explanation.finalExplanationImageUrl) && (
+            {(explanation.finalExplanation ||
+              explanation.finalExplanationImageUrl) && (
               <section>
                 <b>Tahap 4 · Pemeriksaan Kembali</b>
                 <p>
-                  <strong className="essay-final-answer">✅ Jawaban akhir: </strong>
+                  <strong className="essay-final-answer">
+                    ✅ Jawaban akhir:{" "}
+                  </strong>
                   {explanation.finalExplanation}
                 </p>
-                {explanation.finalExplanationImageUrl && <img className="essay-reference-image" src={explanation.finalExplanationImageUrl} alt="Ilustrasi pemeriksaan kembali" />}
+                {explanation.finalExplanationImageUrl && (
+                  <img
+                    className="essay-reference-image"
+                    src={explanation.finalExplanationImageUrl}
+                    alt="Ilustrasi pemeriksaan kembali"
+                  />
+                )}
               </section>
             )}
-            {!explanation.knownInformation && !explanation.knownInformationImageUrl && !explanation.askedInformation && !explanation.askedInformationImageUrl && !explanation.strategy && !explanation.strategyImageUrl && !explanation.finalExplanation && !explanation.finalExplanationImageUrl && !explanation.solution && !explanation.solutionImageUrl && !explanation.solutions?.length && (
-              <section>
-                <p>Pembahasan belum tersedia untuk soal ini.</p>
-              </section>
-            )}
+            {!explanation.knownInformation &&
+              !explanation.knownInformationImageUrl &&
+              !explanation.askedInformation &&
+              !explanation.askedInformationImageUrl &&
+              !explanation.strategy &&
+              !explanation.strategyImageUrl &&
+              !explanation.finalExplanation &&
+              !explanation.finalExplanationImageUrl &&
+              !explanation.solution &&
+              !explanation.solutionImageUrl && (
+                <section>
+                  <p>Pembahasan belum tersedia untuk soal ini.</p>
+                </section>
+              )}
           </div>
           <div className="essay-submit-row">
             <small>Nilai uraian belum dihitung pada peringkat sementara.</small>

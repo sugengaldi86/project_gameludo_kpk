@@ -39,6 +39,7 @@ export type AdminQuestion = {
   context_type: 'kontekstual' | 'langsung'
   correct_value: number
   correct_option: OptionKey
+  answer_solution: string
   final_explanation: string
   is_active: boolean
   created_at: string

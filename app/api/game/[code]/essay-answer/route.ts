@@ -36,10 +36,11 @@ export async function POST(request: Request, { params }: Context) {
       }
       if (result.alreadyAnswered) return NextResponse.json(result)
       // Selalu ambil explanation — pembahasan referensi wajib tampil untuk uraian
-      const [{ data: question }, { data: solutions }] = await Promise.all([
-        supabase.from('questions').select('known_information,asked_information,strategy,final_explanation,answer_solution,answer_know_image_url,answer_asked_image_url,answer_plan_image_url,answer_solution_image_url,answer_check_image_url').eq('id', body.questionId).maybeSingle(),
-        supabase.from('question_solutions').select('method,steps,result').eq('question_id', body.questionId),
-      ])
+      const { data: question } = await supabase
+        .from('questions')
+        .select('known_information,asked_information,strategy,final_explanation,answer_solution,answer_know_image_url,answer_asked_image_url,answer_plan_image_url,answer_solution_image_url,answer_check_image_url')
+        .eq('id', body.questionId)
+        .maybeSingle()
       const explanation = {
         knownInformation: question?.known_information || null,
         knownInformationImageUrl: question?.answer_know_image_url || null,
@@ -51,7 +52,6 @@ export async function POST(request: Request, { params }: Context) {
         solutionImageUrl: question?.answer_solution_image_url || null,
         finalExplanation: question?.final_explanation || null,
         finalExplanationImageUrl: question?.answer_check_image_url || null,
-        solutions: solutions || [],
       }
       return NextResponse.json({
         saved: true, explanation,
@@ -111,10 +111,11 @@ export async function POST(request: Request, { params }: Context) {
     if (turnUpdate.error || sessionUpdate.error) throw turnUpdate.error || sessionUpdate.error
 
     // Ambil explanation untuk ditampilkan
-    const [{ data: question }, { data: solutions }] = await Promise.all([
-      supabase.from('questions').select('known_information,asked_information,strategy,final_explanation,answer_solution,answer_know_image_url,answer_asked_image_url,answer_plan_image_url,answer_solution_image_url,answer_check_image_url').eq('id', body.questionId).maybeSingle(),
-      supabase.from('question_solutions').select('method,steps,result').eq('question_id', body.questionId),
-    ])
+    const { data: question } = await supabase
+      .from('questions')
+      .select('known_information,asked_information,strategy,final_explanation,answer_solution,answer_know_image_url,answer_asked_image_url,answer_plan_image_url,answer_solution_image_url,answer_check_image_url')
+      .eq('id', body.questionId)
+      .maybeSingle()
     const explanation = {
       knownInformation: question?.known_information || null,
       knownInformationImageUrl: question?.answer_know_image_url || null,
@@ -126,7 +127,6 @@ export async function POST(request: Request, { params }: Context) {
       solutionImageUrl: question?.answer_solution_image_url || null,
       finalExplanation: question?.final_explanation || null,
       finalExplanationImageUrl: question?.answer_check_image_url || null,
-      solutions: solutions || [],
     }
 
     const [{ count: essayCount }, { count: choiceCount }] = await Promise.all([

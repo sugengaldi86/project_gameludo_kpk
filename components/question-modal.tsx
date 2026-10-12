@@ -11,7 +11,7 @@ type QuestionModalProps = {
   feedback: string
   correctOption?: string | null
   isCorrect?: boolean | null
-  explanation?: { knownInformation?: string; askedInformation?: string; strategy?: string; finalExplanation?: string; solutions?: Array<{ method: string; steps?: string[] | { steps?: string[] }; result: number }> } | null
+  explanation?: { knownInformation?: string; askedInformation?: string; strategy?: string; solution?: string; finalExplanation?: string } | null
   question: Question | null
   questionTimeSeconds?: number | null
   onClose: () => void
@@ -142,14 +142,7 @@ export function QuestionModal({
                 {explanation.knownInformation && <p><b>Diketahui:</b> {explanation.knownInformation}</p>}
                 {explanation.askedInformation && <p><b>Ditanyakan:</b> {explanation.askedInformation}</p>}
                 {explanation.strategy && <p><b>Strategi:</b> {explanation.strategy}</p>}
-                {explanation.solutions?.map((solution) => (
-                  <div key={solution.method} style={{ marginTop: '0.5rem' }}>
-                    <b>{solution.method === 'multiples' ? '📋 Cara Kelipatan' : solution.method === 'prime_factorization' ? '🔢 Faktorisasi Prima' : '➗ Pembagian Bersusun'}:</b>
-                    {Array.isArray(solution.steps)
-                      ? solution.steps.map((step, i) => <p key={i} style={{ margin: '2px 0', paddingLeft: '0.75rem' }}>• {step}</p>)
-                      : null}
-                  </div>
-                ))}
+                {explanation.solution && <section className="answer-explanation-stage"><b>Tahap 3 · Acuan Pelaksanaan Rencana</b><p>{explanation.solution}</p></section>}
                 {explanation.finalExplanation && <p style={{ marginTop: '0.5rem' }}><b>✅ Jawaban akhir:</b> {explanation.finalExplanation}</p>}
               </div>
             )}

@@ -4,12 +4,24 @@ import { supabaseServer } from '@/lib/supabase'
 
 type DatabaseError = { code?: string; message?: string } | null
 const ESSAY_CODE_PATTERN = /^(?:U[A-Z0-9-]{1,19}|ES\d{2,})$/
+const ESSAY_METHODS = ['multiples', 'prime_factorization', 'repeated_division'] as const
+type EssayMethod = (typeof ESSAY_METHODS)[number]
 
 async function authorized() { return Boolean(await getAdminSession()) }
 function missingColumn(error: DatabaseError, column: string) { return Boolean(error && ['PGRST204', '42703'].includes(error.code || '') && error.message?.includes(column)) }
 function databaseUnavailable(error: unknown) {
   console.error('Admin learning database error:', error)
   return NextResponse.json({ error: 'Database tidak dapat dihubungi. Periksa konfigurasi Supabase.' }, { status: 503 })
+}
+function readEssaySolutions(value: unknown) {
+  if (!Array.isArray(value)) return null
+  const byMethod = new Map(value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object')).map(item => [item.method, item]))
+  const solutions = ESSAY_METHODS.map(method => {
+    const item = byMethod.get(method)
+    const steps = Array.isArray(item?.steps) ? item.steps.map(String).map(step => step.trim()).filter(Boolean) : []
+    return { method, steps, result: Number(item?.result) || 0 }
+  })
+  return solutions.every(solution => solution.steps.length > 0) ? solutions : null
 }
 
 export async function GET() {
@@ -18,7 +30,7 @@ export async function GET() {
     const supabase = supabaseServer()
     const [contents, essayResult] = await Promise.all([
       supabase.from('learning_contents').select('*').order('content_type').order('display_order'),
-      supabase.from('questions').select('id,question_code,story,answer_know,answer_asked,answer_plan,answer_solution,answer_check,answer_know_image_url,answer_asked_image_url,answer_plan_image_url,answer_solution_image_url,answer_check_image_url,score_weight,display_order,is_active,difficulty,operand_count,context_type').eq('question_type', 'essay').order('display_order'),
+      supabase.from('questions').select('id,question_code,story,answer_know,answer_asked,answer_plan,answer_solution,answer_check,answer_know_image_url,answer_asked_image_url,answer_plan_image_url,answer_solution_image_url,answer_check_image_url,score_weight,display_order,is_active,difficulty,operand_count,context_type,question_solutions(method,steps,result)').eq('question_type', 'essay').order('display_order'),
     ])
     let essayError = essayResult.error
     let essayData = essayResult.data
@@ -31,7 +43,7 @@ export async function GET() {
       'answer_check_image_url',
     ].some(column => missingColumn(essayResult.error, column))
     if (missingEssayExtension) {
-      const legacyResult = await supabase.from('questions').select('id,question_code,story,answer_know,answer_asked,strategy,answer_solution,answer_check,score_weight,display_order,is_active,difficulty,operand_count,context_type').eq('question_type', 'essay').order('display_order')
+      const legacyResult = await supabase.from('questions').select('id,question_code,story,answer_know,answer_asked,strategy,answer_solution,answer_check,score_weight,display_order,is_active,difficulty,operand_count,context_type,question_solutions(method,steps,result)').eq('question_type', 'essay').order('display_order')
       essayError = legacyResult.error
       essayData = legacyResult.data?.map(item => ({
         ...item,
@@ -83,6 +95,8 @@ export async function POST(request: Request) {
       const story = String(body.story || '').trim()
       if (!ESSAY_CODE_PATTERN.test(questionCode)) return NextResponse.json({ error: 'Kode uraian harus menggunakan format U-KPK-01 atau ES01' }, { status: 400 })
       if (story.length < 20) return NextResponse.json({ error: 'Teks soal uraian minimal 20 karakter' }, { status: 400 })
+      const questionSolutions = readEssaySolutions(body.question_solutions)
+      if (!questionSolutions) return NextResponse.json({ error: 'Isi ketiga metode Tahap 3, minimal satu langkah pada setiap metode.' }, { status: 400 })
       const difficulty = ['mudah', 'sedang', 'hots'].includes(String(body.difficulty)) ? String(body.difficulty) : 'sedang'
       const commonPayload = {
         question_code: questionCode, story, question_type: 'essay', difficulty, topic: 'kpk',
@@ -91,7 +105,7 @@ export async function POST(request: Request) {
         operand_count: Math.min(3, Math.max(2, Number(body.operand_count) || 2)), context_type: 'kontekstual',
         final_explanation: String(body.answer_check || '').trim(),
         answer_know: String(body.answer_know || '').trim(), answer_asked: String(body.answer_asked || '').trim(),
-        answer_plan: String(body.answer_plan || '').trim(), answer_solution: String(body.answer_solution || '').trim(),
+        answer_plan: String(body.answer_plan || '').trim(), answer_solution: '',
         answer_check: String(body.answer_check || '').trim(),
         answer_know_image_url: body.answer_know_image_url ? String(body.answer_know_image_url).trim() : null,
         answer_asked_image_url: body.answer_asked_image_url ? String(body.answer_asked_image_url).trim() : null,
@@ -119,6 +133,11 @@ export async function POST(request: Request) {
         const duplicate = result.error.code === '23505'
         return NextResponse.json({ error: duplicate ? 'Kode soal sudah digunakan' : result.error.message }, { status: duplicate ? 409 : 500 })
       }
+      if (!result.data?.id) return NextResponse.json({ error: 'Soal uraian gagal disimpan' }, { status: 500 })
+      const { error: deleteSolutionsError } = await supabase.from('question_solutions').delete().eq('question_id', result.data.id)
+      if (deleteSolutionsError) return NextResponse.json({ error: deleteSolutionsError.message }, { status: 500 })
+      const { error: insertSolutionsError } = await supabase.from('question_solutions').insert(questionSolutions.map(solution => ({ question_id: result.data.id, ...solution })))
+      if (insertSolutionsError) return NextResponse.json({ error: insertSolutionsError.message }, { status: 500 })
       return NextResponse.json({ data: result.data }, { status: body.id ? 200 : 201 })
     }
     return NextResponse.json({ error: 'Jenis data tidak valid' }, { status: 400 })

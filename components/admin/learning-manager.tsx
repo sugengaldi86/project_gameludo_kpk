@@ -6,11 +6,18 @@ import { BookOpen, GraduationCap, ImageUp, Pencil, Plus, RotateCcw, Save, Trash2
 
 type Content = { id?: string; content_type: 'objective' | 'material'; title: string; body: string; image_url: string | null; display_order: number; show_in_briefing: boolean; is_active: boolean }
 type EssayImageKey = 'answer_know_image_url' | 'answer_asked_image_url' | 'answer_plan_image_url' | 'answer_solution_image_url' | 'answer_check_image_url'
-type Essay = { id?: string; question_code: string; story: string; answer_know: string; answer_asked: string; answer_plan: string; answer_solution: string; answer_check: string; answer_know_image_url: string | null; answer_asked_image_url: string | null; answer_plan_image_url: string | null; answer_solution_image_url: string | null; answer_check_image_url: string | null; score_weight: number; display_order: number; difficulty: string; operand_count: number; is_active: boolean }
+type EssayMethod = 'multiples' | 'prime_factorization' | 'repeated_division'
+type EssaySolution = { method: EssayMethod; steps: string[]; result: number }
+type Essay = { id?: string; question_code: string; story: string; answer_know: string; answer_asked: string; answer_plan: string; answer_solution: string; answer_check: string; answer_know_image_url: string | null; answer_asked_image_url: string | null; answer_plan_image_url: string | null; answer_solution_image_url: string | null; answer_check_image_url: string | null; question_solutions: EssaySolution[]; score_weight: number; display_order: number; difficulty: string; operand_count: number; is_active: boolean }
 type LearningResponse = { error?: string; data?: { contents: Content[]; essays: Essay[] } }
 
 const emptyContent: Content = { content_type: 'material', title: '', body: '', image_url: null, display_order: 0, show_in_briefing: true, is_active: true }
-const emptyEssay: Essay = { question_code: '', story: '', answer_know: '', answer_asked: '', answer_plan: '', answer_solution: '', answer_check: '', answer_know_image_url: null, answer_asked_image_url: null, answer_plan_image_url: null, answer_solution_image_url: null, answer_check_image_url: null, score_weight: 10, display_order: 0, difficulty: 'sedang', operand_count: 2, is_active: true }
+const essaySolutionMethods: Array<{ method: EssayMethod; label: string }> = [
+  { method: 'multiples', label: 'Mendaftar kelipatan' },
+  { method: 'prime_factorization', label: 'Faktorisasi prima' },
+  { method: 'repeated_division', label: 'Pembagian berulang / sengkedan' },
+]
+const emptyEssay: Essay = { question_code: '', story: '', answer_know: '', answer_asked: '', answer_plan: '', answer_solution: '', answer_check: '', answer_know_image_url: null, answer_asked_image_url: null, answer_plan_image_url: null, answer_solution_image_url: null, answer_check_image_url: null, question_solutions: essaySolutionMethods.map(({ method }) => ({ method, steps: [], result: 0 })), score_weight: 10, display_order: 0, difficulty: 'sedang', operand_count: 2, is_active: true }
 const essayStages = [
   { textKey: 'answer_know', imageKey: 'answer_know_image_url', label: 'Tahap 1 · Acuan Diketahui' },
   { textKey: 'answer_asked', imageKey: 'answer_asked_image_url', label: 'Tahap 1 · Acuan Ditanyakan' },
@@ -64,6 +71,14 @@ function normalizeEssay(item: Essay): Essay {
     answer_plan_image_url: item.answer_plan_image_url || null,
     answer_solution_image_url: item.answer_solution_image_url || null,
     answer_check_image_url: item.answer_check_image_url || null,
+    question_solutions: essaySolutionMethods.map(({ method }) => {
+      const solution = item.question_solutions?.find(candidate => candidate.method === method)
+      return {
+        method,
+        steps: Array.isArray(solution?.steps) ? solution.steps.map(String).filter(Boolean) : [],
+        result: Number(solution?.result) || 0,
+      }
+    }),
     score_weight: Number(item.score_weight) || 10,
     display_order: Number(item.display_order) || 0,
     difficulty,
@@ -145,6 +160,16 @@ export function LearningManager() {
       else setEssay(current => current ? { ...current, [target]: url } : current)
     } catch (uploadError) { setError(errorMessage(uploadError, 'Gambar gagal diunggah')) }
     finally { setUploadingField(null) }
+  }
+
+  function updateEssaySolution(method: EssayMethod, text: string) {
+    setEssay(current => current ? {
+      ...current,
+      answer_solution: '',
+      question_solutions: current.question_solutions.map(solution => solution.method === method
+        ? { ...solution, steps: text.split('\n').map(step => step.trim()).filter(Boolean) }
+        : solution),
+    } : current)
   }
 
   async function deactivate(entity: 'content' | 'essay', id?: string) {
@@ -231,7 +256,18 @@ export function LearningManager() {
         <label>Urutan<input type="number" value={essay.display_order} onChange={event => setEssay({ ...essay, display_order: Number(event.target.value) })} /></label>
       </div>
       <label>Teks soal<textarea required minLength={20} rows={4} value={essay.story} onChange={event => setEssay({ ...essay, story: event.target.value })} /></label>
-      <div className="admin-form-grid two">{essayStages.map(stage => <div className={`admin-essay-reference-editor${stage.textKey === 'answer_solution' ? ' highlighted' : ''}`} key={stage.textKey}><label>{stage.label}<textarea rows={4} value={essay[stage.textKey] || ''} onChange={event => setEssay({ ...essay, [stage.textKey]: event.target.value })} /></label><label>URL gambar (opsional)<input type="url" value={essay[stage.imageKey] || ''} onChange={event => setEssay({ ...essay, [stage.imageKey]: event.target.value || null })} /></label>{essay[stage.imageKey] && <img src={essay[stage.imageKey]!} alt={`Preview ${stage.label}`} />}<div className="admin-image-actions"><label className="admin-secondary-button"><ImageUp />{uploadingField === stage.imageKey ? 'Mengunggah...' : essay[stage.imageKey] ? 'Ganti Foto' : 'Tambah Foto'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(uploadingField)} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadImage(file, stage.imageKey); event.target.value = '' }} /></label>{essay[stage.imageKey] && <button type="button" className="admin-secondary-button danger" onClick={() => setEssay({ ...essay, [stage.imageKey]: null })}><Trash2 />Hapus Foto</button>}</div><small>Foto opsional; teks dan foto dapat digunakan bersamaan.</small></div>)}</div>
+      <div className="admin-form-grid two">{essayStages.filter(stage => stage.textKey !== 'answer_solution').map(stage => <div className="admin-essay-reference-editor" key={stage.textKey}><label>{stage.label}<textarea rows={4} value={essay[stage.textKey] || ''} onChange={event => setEssay({ ...essay, [stage.textKey]: event.target.value })} /></label><label>URL gambar (opsional)<input type="url" value={essay[stage.imageKey] || ''} onChange={event => setEssay({ ...essay, [stage.imageKey]: event.target.value || null })} /></label>{essay[stage.imageKey] && <img src={essay[stage.imageKey]!} alt={`Preview ${stage.label}`} />}<div className="admin-image-actions"><label className="admin-secondary-button"><ImageUp />{uploadingField === stage.imageKey ? 'Mengunggah...' : essay[stage.imageKey] ? 'Ganti Foto' : 'Tambah Foto'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(uploadingField)} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadImage(file, stage.imageKey); event.target.value = '' }} /></label>{essay[stage.imageKey] && <button type="button" className="admin-secondary-button danger" onClick={() => setEssay({ ...essay, [stage.imageKey]: null })}><Trash2 />Hapus Foto</button>}</div><small>Foto opsional; teks dan foto dapat digunakan bersamaan.</small></div>)}</div>
+      <section className="admin-essay-stage-three">
+        <div><span className="admin-kicker">TAHAP 3</span><h3>Pelaksanaan Rencana</h3><p>Edit langkah per baris. Isi yang disimpan akan tampil sama pada feedback siswa.</p></div>
+        <div className="admin-essay-method-grid">{essaySolutionMethods.map(({ method, label }) => {
+          const solution = essay.question_solutions.find(item => item.method === method)
+          return <label className="admin-essay-method-editor" key={method}><strong>{label}</strong><textarea rows={5} value={solution?.steps.join('\n') || ''} onChange={event => updateEssaySolution(method, event.target.value)} placeholder="Tulis satu langkah pada setiap baris." required /></label>
+        })}</div>
+        <label>URL gambar Tahap 3 (opsional)<input type="url" value={essay.answer_solution_image_url || ''} onChange={event => setEssay({ ...essay, answer_solution_image_url: event.target.value || null })} /></label>
+        {essay.answer_solution_image_url && <img src={essay.answer_solution_image_url} alt="Preview Tahap 3" />}
+        <div className="admin-image-actions"><label className="admin-secondary-button"><ImageUp />{uploadingField === 'answer_solution_image_url' ? 'Mengunggah...' : essay.answer_solution_image_url ? 'Ganti Foto' : 'Tambah Foto'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(uploadingField)} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadImage(file, 'answer_solution_image_url'); event.target.value = '' }} /></label>{essay.answer_solution_image_url && <button type="button" className="admin-secondary-button danger" onClick={() => setEssay({ ...essay, answer_solution_image_url: null })}><Trash2 />Hapus Foto</button>}</div>
+        <small>Gambar opsional; gambar akan tampil setelah tiga kartu metode pada feedback.</small>
+      </section>
       <div className="admin-form-grid two"><label>Bobot nilai<input type="number" min="1" value={essay.score_weight} onChange={event => setEssay({ ...essay, score_weight: Number(event.target.value) })} /></label><label className="admin-switch-row"><input type="checkbox" checked={essay.is_active} onChange={event => setEssay({ ...essay, is_active: event.target.checked })} /><span><strong>Soal aktif</strong><small>Aktifkan kembali soal yang dinonaktifkan.</small></span></label></div>
       <div className="admin-form-actions"><button type="button" className="admin-secondary-button" onClick={() => setEssay(null)}>Batal</button><button className="admin-primary-button" disabled={saving}><Save />{saving ? 'Menyimpan...' : 'Simpan soal'}</button></div>
     </section></form>}

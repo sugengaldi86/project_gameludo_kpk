@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
@@ -7,7 +7,7 @@ import { GameBoard } from '@/components/game-board'
 import { GameNavigation } from '@/components/game-navigation'
 import { DicePanel } from '@/components/dice-panel'
 import { QuestionModal } from '@/components/question-modal'
-import { EssayQuestionModal, type EssayAnswer } from '@/components/essay-question-modal'
+import { EssayQuestionModal, type EssayAnswer, type SolutionItem } from '@/components/essay-question-modal'
 import { SetupScreen } from '@/components/setup-screen'
 import { WelcomeScreen } from '@/components/welcome-screen'
 import { type NavItem, type Player, type Question } from '@/lib/game-data'
@@ -19,6 +19,7 @@ type GameExplanation = NonNullable<Parameters<typeof QuestionModal>[0]['explanat
   strategyImageUrl?: string | null
   solution?: string | null
   solutionImageUrl?: string | null
+  solutions?: SolutionItem[] | null
   finalExplanationImageUrl?: string | null
 }
 
@@ -389,7 +390,11 @@ export default function Page() {
       
       if (result.explanation) {
         // Tampilkan PEMBAHASAN REFERENSI di modal
-        setExplanation(result.explanation)
+        const rawExpl = result.explanation as Record<string, unknown>
+        setExplanation({
+          ...rawExpl,
+          solutions: Array.isArray(rawExpl.solutions) ? (rawExpl.solutions as SolutionItem[]) : null,
+        } as GameExplanation)
         setAnswerTurnAdvanced(true)
         setEssayProgress(result.essayCount || essayProgress + 1)
         setNotice(result.gameComplete ? 'Seluruh soal selesai!' : 'Jawaban uraian tersimpan. Lihat pembahasan referensi.')
@@ -412,7 +417,7 @@ export default function Page() {
     setQuestionOpen(false)
     if (canMovePawn) {
       // Jawaban benar - beri tahu pemain untuk klik pion
-      setNotice('🎯 Klik pion kamu di papan untuk maju!')
+      setNotice('ðŸŽ¯ Klik pion kamu di papan untuk maju!')
     } else if (answerTurnAdvanced) {
       try {
         const players = await refreshGame(roomCode)
@@ -528,6 +533,7 @@ export default function Page() {
         strategyImageUrl: explanation.strategyImageUrl,
         solution: explanation.solution,
         solutionImageUrl: explanation.solutionImageUrl,
+        solutions: explanation.solutions ?? null,
         finalExplanation: explanation.finalExplanation,
         finalExplanationImageUrl: explanation.finalExplanationImageUrl,
       }
@@ -540,7 +546,7 @@ export default function Page() {
         <div className="room-pill"><span className="live-dot" /> ROOM <strong>{roomCode}</strong><button aria-label="Salin kode room" onClick={copyRoom}>{copied ? 'Tersalin' : <MoreHorizontal />}</button></div>
         {endTime && (
           <div className={`exam-timer-pill${timerSeconds <= 60 ? ' critical' : timerSeconds <= 300 ? ' danger' : timerSeconds <= 600 ? ' warning' : ''}`}>
-            ⏱ {timeLeft}
+            â± {timeLeft}
           </div>
         )}
         <div className="top-actions"><div className="level-progress"><div className="level-row"><span>Level {activePlayer?.level || 1}</span><strong>{activePlayer?.totalXp || 0} XP</strong></div><div className="progress-track"><div style={{ width: `${Math.min((activePlayer?.totalXp || 0) % 100, 100)}%` }} /></div></div><button className="icon-button" aria-label="Notifikasi" onClick={() => openDialog('Notifikasi')}><Bell /></button><button className="icon-button" aria-label="Pengaturan" onClick={() => openDialog('Pengaturan')}><Settings /></button><div className="profile-avatar">{activePlayer?.avatar || 'P'}</div></div>
@@ -557,7 +563,7 @@ export default function Page() {
         </aside>
 
         <section className="board-section">
-          <div className="board-heading"><div><p className="eyebrow">MODE KLASIK · GILIRAN {turnNumber}</p><h1>{learningGoal || 'Waktunya menaklukkan KPK!'}</h1></div><div className="streak-badge"><Sparkles /> <span>Streak <strong>{streak}</strong></span></div></div>
+          <div className="board-heading"><div><p className="eyebrow">MODE KLASIK Â· GILIRAN {turnNumber}</p><h1>{learningGoal || 'Waktunya menaklukkan KPK!'}</h1></div><div className="streak-badge"><Sparkles /> <span>Streak <strong>{streak}</strong></span></div></div>
           <div className="board-stage">
             <GameBoard
               dice={dice}
@@ -612,13 +618,13 @@ export default function Page() {
       {activeDialog && (
         <div className="question-overlay" role="dialog" aria-modal="true" aria-labelledby="feature-title">
           <div className={`question-modal feature-modal feature-${activeDialog.toLowerCase().replaceAll(' ', '-')}`}>
-            <div className="question-topline"><span className="eyebrow">LUDO KPK · PANEL PEMAIN</span><button className="close-question" onClick={closeDialog} aria-label="Tutup"><X /></button></div>
+            <div className="question-topline"><span className="eyebrow">LUDO KPK Â· PANEL PEMAIN</span><button className="close-question" onClick={closeDialog} aria-label="Tutup"><X /></button></div>
             {activeDialog === 'Rank' && <><div className="feature-hero rank-hero"><Trophy /><div><strong>Peringkat room</strong><small>Diurutkan dari skor permainan saat ini.</small></div></div><h2 id="feature-title">Leaderboard Room</h2><div className="feature-stat-grid"><div><strong>{activePlayer?.score || 0}</strong><small>Poin pemain aktif</small></div><div><strong>{turnNumber}</strong><small>Nomor giliran</small></div><div><strong>#{activeRank || '-'}</strong><small>Peringkat room</small></div></div><div className="feature-ranking">{rankedPlayers.map((player, index) => <div className="feature-rank-row" key={player.id || player.name}><span>{index + 1}</span><div className={`mini-avatar avatar-${player.color}`}>{player.avatar}</div><strong>{player.name}</strong><b>{player.score} pts</b></div>)}</div></>}
             {activeDialog === 'Misi' && <><div className="feature-hero mission-hero"><Gem /><div><strong>Target room</strong><small>Progres pemain yang sedang mendapat giliran.</small></div></div><h2 id="feature-title">Target Permainan</h2><div className="detail-mission"><div className="detail-mission-top"><Star /><strong>Jawab 5 soal benar</strong><b>{Math.min(correctAnswers, 5)}/5</b></div><div className="wide-progress"><span style={{ width: `${Math.min(correctAnswers / 5 * 100, 100)}%` }} /></div><small>Target latihan; tidak memberikan hadiah tambahan.</small></div><div className="detail-mission"><div className="detail-mission-top"><Medal /><strong>Streak 3 jawaban</strong><b>{Math.min(streak, 3)}/3</b></div><div className={`wide-progress ${streak >= 3 ? 'complete' : ''}`}><span style={{ width: `${Math.min(streak / 3 * 100, 100)}%` }} /></div><small>{streak >= 3 ? 'Target tercapai.' : 'Pertahankan jawaban benar secara beruntun.'}</small></div></>}
             {activeDialog === 'Belajar' && <><div className="feature-hero learn-hero"><BookOpen /><div><strong>Mini lesson KPK</strong><small>Materi referensi sebelum kembali bermain.</small></div></div><h2 id="feature-title">Pusat Belajar</h2><p className="feature-intro">KPK adalah kelipatan terkecil yang sama dari dua bilangan.</p><div className="lesson-card"><span>Contoh</span><strong>Kelipatan 3: 3, 6, 9, <em>12</em></strong><strong>Kelipatan 4: 4, 8, <em>12</em></strong><small>Jadi, KPK dari 3 dan 4 adalah 12.</small></div></>}
-            {activeDialog === 'Profil' && <><div className="profile-hero"><div className="profile-big-avatar">{activePlayer?.avatar || 'P'}</div><div><h2 id="feature-title">{activePlayer?.name || 'Pemain'}</h2><p>Level {activePlayer?.level || 1} · Pemain aktif</p></div></div><div className="profile-xp"><div><span>XP saat ini</span><strong>{activePlayer?.totalXp || 0} XP</strong></div><div className="wide-progress"><span style={{ width: `${Math.min((activePlayer?.totalXp || 0) % 100, 100)}%` }} /></div></div><div className="profile-stats"><div><strong>{streak}</strong><small>Streak saat ini</small></div><div><strong>{activeAccuracy}%</strong><small>Akurasi</small></div><div><strong>{correctAnswers + wrongAnswers}</strong><small>Soal dijawab</small></div></div></>}
+            {activeDialog === 'Profil' && <><div className="profile-hero"><div className="profile-big-avatar">{activePlayer?.avatar || 'P'}</div><div><h2 id="feature-title">{activePlayer?.name || 'Pemain'}</h2><p>Level {activePlayer?.level || 1} Â· Pemain aktif</p></div></div><div className="profile-xp"><div><span>XP saat ini</span><strong>{activePlayer?.totalXp || 0} XP</strong></div><div className="wide-progress"><span style={{ width: `${Math.min((activePlayer?.totalXp || 0) % 100, 100)}%` }} /></div></div><div className="profile-stats"><div><strong>{streak}</strong><small>Streak saat ini</small></div><div><strong>{activeAccuracy}%</strong><small>Akurasi</small></div><div><strong>{correctAnswers + wrongAnswers}</strong><small>Soal dijawab</small></div></div></>}
             {activeDialog === 'Cara bermain' && <><div className="feature-hero how-hero"><CircleHelp /><div><strong>Game lokal satu perangkat</strong><small>Pemain bergantian menggunakan perangkat yang sama.</small></div></div><h2 id="feature-title">Cara Bermain</h2><div className="how-steps"><div><b>01</b><span><strong>Lempar dadu</strong><small>Tekan tombol dadu pada giliranmu.</small></span></div><div><b>02</b><span><strong>Gerakkan pion</strong><small>Pilih pion yang dapat bergerak, lalu jawab soal KPK.</small></span></div><div><b>03</b><span><strong>Capai garis akhir</strong><small>Bawa empat pion ke pusat atau kumpulkan skor tertinggi sampai waktu habis.</small></span></div></div></>}
-            {activeDialog === 'Notifikasi' && <><div className="feature-hero notification-hero"><Bell /><div><strong>Status permainan</strong><small>Informasi terbaru dari room aktif.</small></div></div><h2 id="feature-title">Notifikasi</h2><div className="notification-item"><Sparkles /><div><strong>Giliran {activePlayer?.name || 'pemain'}</strong><small>{notice}</small></div><span>Sekarang</span></div><div className="notification-item"><Trophy /><div><strong>Room {roomCode}</strong><small>{gamePlayers.length} pemain · giliran {turnNumber} · sisa {timeLeft}</small></div><span>Aktif</span></div></>}
+            {activeDialog === 'Notifikasi' && <><div className="feature-hero notification-hero"><Bell /><div><strong>Status permainan</strong><small>Informasi terbaru dari room aktif.</small></div></div><h2 id="feature-title">Notifikasi</h2><div className="notification-item"><Sparkles /><div><strong>Giliran {activePlayer?.name || 'pemain'}</strong><small>{notice}</small></div><span>Sekarang</span></div><div className="notification-item"><Trophy /><div><strong>Room {roomCode}</strong><small>{gamePlayers.length} pemain Â· giliran {turnNumber} Â· sisa {timeLeft}</small></div><span>Aktif</span></div></>}
             {activeDialog === 'Pengaturan' && <><div className="feature-hero settings-hero"><Settings /><div><strong>Pengaturan game</strong><small>Preferensi berlaku selama halaman ini terbuka.</small></div></div><h2 id="feature-title">Pengaturan</h2><div className="settings-list"><button onClick={() => setMuted((value) => !value)}><span><Volume2 /><strong>Suara umpan balik</strong></span><b>{muted ? 'Mati' : 'Nyala'}</b></button></div></>}
             <button className="roll-button dialog-action" onClick={closeDialog}>Kembali ke game</button>
           </div>
@@ -658,3 +664,4 @@ export default function Page() {
     </main>
   )
 }
+

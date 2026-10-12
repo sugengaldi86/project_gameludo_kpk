@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+﻿/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, type FormEvent } from "react";
@@ -9,6 +9,24 @@ export type SolutionMethod =
   | "multiples"
   | "prime_factorization"
   | "repeated_division";
+
+export type SolutionItem = {
+  method: SolutionMethod;
+  steps: string[];
+  result?: number;
+};
+
+const METHOD_LABELS: Record<SolutionMethod, string> = {
+  multiples: "Mendaftar kelipatan",
+  prime_factorization: "Faktorisasi prima",
+  repeated_division: "Pembagian berulang / sengkedan",
+};
+const METHOD_ORDER: SolutionMethod[] = [
+  "multiples",
+  "prime_factorization",
+  "repeated_division",
+];
+
 export type EssayAnswer = {
   known: string;
   asked: string;
@@ -40,6 +58,7 @@ type Explanation = {
   strategyImageUrl?: string | null;
   solution?: string | null;
   solutionImageUrl?: string | null;
+  solutions?: SolutionItem[] | null;
   finalExplanation?: string | null;
   finalExplanationImageUrl?: string | null;
 };
@@ -72,6 +91,65 @@ export function EssayQuestionModal({
     await onSubmit(answer);
     setAnswer(EMPTY_ANSWER);
   }
+
+  function renderStage3(expl: Explanation) {
+    const hasSolutions =
+      Array.isArray(expl.solutions) &&
+      expl.solutions.some((s) => (s.steps?.length ?? 0) > 0);
+    const hasLegacySolution = !hasSolutions && Boolean(expl.solution);
+    const hasStage3 =
+      hasSolutions || hasLegacySolution || Boolean(expl.solutionImageUrl);
+    if (!hasStage3) return null;
+    return (
+      <section>
+        <b>Tahap 3 &middot; Pelaksanaan Rencana</b>
+        {hasSolutions && (
+          <div className="essay-method-cards">
+            {METHOD_ORDER.map((method) => {
+              const item = expl.solutions!.find((s) => s.method === method);
+              if (!item || !item.steps?.length) return null;
+              return (
+                <div key={method} className="essay-method-card">
+                  <strong className="essay-method-card-title">
+                    {METHOD_LABELS[method]}
+                  </strong>
+                  {item.steps.map((step, i) => (
+                    <p key={i}>{step}</p>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {hasLegacySolution && <p>{expl.solution}</p>}
+        {expl.solutionImageUrl && (
+          <img
+            className="essay-reference-image"
+            src={expl.solutionImageUrl}
+            alt="Ilustrasi pelaksanaan rencana"
+          />
+        )}
+      </section>
+    );
+  }
+
+  function hasAnyExplanation(expl: Explanation) {
+    return Boolean(
+      expl.knownInformation ||
+        expl.knownInformationImageUrl ||
+        expl.askedInformation ||
+        expl.askedInformationImageUrl ||
+        expl.strategy ||
+        expl.strategyImageUrl ||
+        expl.finalExplanation ||
+        expl.finalExplanationImageUrl ||
+        expl.solution ||
+        expl.solutionImageUrl ||
+        (Array.isArray(expl.solutions) &&
+          expl.solutions.some((s) => (s.steps?.length ?? 0) > 0))
+    );
+  }
+
   return (
     <div
       className="question-overlay essay-overlay"
@@ -198,7 +276,7 @@ export function EssayQuestionModal({
           <div className="essay-submit-row">
             <small>Jawaban uraian akan diperiksa oleh guru.</small>
             <button className="continue-answer" disabled={saving}>
-              {saving ? "Menyimpan…" : "Selesai dan Lihat Feedback"}
+              {saving ? "Menyimpan..." : "Selesai dan Lihat Feedback"}
             </button>
           </div>
         </form>
@@ -232,7 +310,7 @@ export function EssayQuestionModal({
             {(explanation.knownInformation ||
               explanation.knownInformationImageUrl) && (
               <section>
-                <b>Tahap 1 · Diketahui</b>
+                <b>Tahap 1 &middot; Diketahui</b>
                 {explanation.knownInformation && (
                   <p>{explanation.knownInformation}</p>
                 )}
@@ -248,7 +326,7 @@ export function EssayQuestionModal({
             {(explanation.askedInformation ||
               explanation.askedInformationImageUrl) && (
               <section>
-                <b>Tahap 1 · Ditanyakan</b>
+                <b>Tahap 1 &middot; Ditanyakan</b>
                 {explanation.askedInformation && (
                   <p>{explanation.askedInformation}</p>
                 )}
@@ -263,7 +341,7 @@ export function EssayQuestionModal({
             )}
             {(explanation.strategy || explanation.strategyImageUrl) && (
               <section>
-                <b>Tahap 2 · Rencana Pemecahan</b>
+                <b>Tahap 2 &middot; Rencana Pemecahan</b>
                 {explanation.strategy && <p>{explanation.strategy}</p>}
                 {explanation.strategyImageUrl && (
                   <img
@@ -274,26 +352,14 @@ export function EssayQuestionModal({
                 )}
               </section>
             )}
-            {(explanation.solution || explanation.solutionImageUrl) && (
-              <section>
-                <b>Tahap 3 · Pelaksanaan Rencana</b>
-                {explanation.solution && <p>{explanation.solution}</p>}
-                {explanation.solutionImageUrl && (
-                  <img
-                    className="essay-reference-image"
-                    src={explanation.solutionImageUrl}
-                    alt="Ilustrasi pelaksanaan rencana"
-                  />
-                )}
-              </section>
-            )}
+            {renderStage3(explanation)}
             {(explanation.finalExplanation ||
               explanation.finalExplanationImageUrl) && (
               <section>
-                <b>Tahap 4 · Pemeriksaan Kembali</b>
+                <b>Tahap 4 &middot; Pemeriksaan Kembali</b>
                 <p>
                   <strong className="essay-final-answer">
-                    ✅ Jawaban akhir:{" "}
+                    &#x2705; Jawaban akhir:{" "}
                   </strong>
                   {explanation.finalExplanation}
                 </p>
@@ -306,25 +372,16 @@ export function EssayQuestionModal({
                 )}
               </section>
             )}
-            {!explanation.knownInformation &&
-              !explanation.knownInformationImageUrl &&
-              !explanation.askedInformation &&
-              !explanation.askedInformationImageUrl &&
-              !explanation.strategy &&
-              !explanation.strategyImageUrl &&
-              !explanation.finalExplanation &&
-              !explanation.finalExplanationImageUrl &&
-              !explanation.solution &&
-              !explanation.solutionImageUrl && (
-                <section>
-                  <p>Pembahasan belum tersedia untuk soal ini.</p>
-                </section>
-              )}
+            {!hasAnyExplanation(explanation) && (
+              <section>
+                <p>Pembahasan belum tersedia untuk soal ini.</p>
+              </section>
+            )}
           </div>
           <div className="essay-submit-row">
             <small>Nilai uraian belum dihitung pada peringkat sementara.</small>
             <button className="continue-answer" onClick={onContinue}>
-              Lanjutkan Permainan 🎯
+              Lanjutkan Permainan &#127919;
             </button>
           </div>
         </div>

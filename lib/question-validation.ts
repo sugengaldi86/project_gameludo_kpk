@@ -136,7 +136,9 @@ export function validateQuestionInput(value: unknown):
         topic: String(input.topic || 'kpk').trim().toLowerCase(),
         known_information: knownInformation,
         asked_information: askedInformation,
-        strategy: String(input.strategy || 'KPK').trim().toUpperCase(),
+        strategy: ['kpk', 'fpb'].includes(String(input.strategy || '').trim().toLowerCase())
+          ? String(input.strategy || '').trim().toUpperCase()
+          : String(input.strategy || 'KPK').trim(),
         number_a: numberA,
         number_b: numberB,
         number_c: numberC,
@@ -174,7 +176,9 @@ export function validateQuestionInput(value: unknown):
       topic: String(input.topic || 'kpk').trim().toLowerCase(),
       known_information: knownInformation,
       asked_information: askedInformation,
-      strategy: String(input.strategy || 'KPK').trim().toUpperCase(),
+      strategy: ['kpk', 'fpb'].includes(String(input.strategy || '').trim().toLowerCase())
+        ? String(input.strategy || '').trim().toUpperCase()
+        : String(input.strategy || 'KPK').trim(),
       number_a: numberA,
       number_b: numberB,
       number_c: numberC,

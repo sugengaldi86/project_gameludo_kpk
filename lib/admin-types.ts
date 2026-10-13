@@ -17,7 +17,7 @@ export type QuestionOption = {
 
 export type QuestionSolution = {
   id?: string
-  method: 'multiples' | 'prime_factorization'
+  method: 'multiples' | 'prime_factorization' | 'repeated_division'
   steps: string[]
   result: number
 }

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
@@ -315,7 +315,15 @@ export default function Page() {
 
       setCorrectOption(result.correctOption ?? null)
       setIsAnswerCorrect(result.isCorrect)
-      setExplanation(result.explanation || null)
+      if (result.explanation) {
+        const rawExpl = result.explanation as Record<string, unknown>
+        setExplanation({
+          ...rawExpl,
+          solutions: Array.isArray(rawExpl.solutions) ? (rawExpl.solutions as SolutionItem[]) : null,
+        } as GameExplanation)
+      } else {
+        setExplanation(null)
+      }
       setAnswerTurnAdvanced(Boolean(result.turnAdvanced))
       if (result.targets) {
         setEssayTarget(result.targets.essay)

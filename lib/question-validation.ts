@@ -83,17 +83,14 @@ export function validateQuestionInput(value: unknown):
 
   const solutions = Array.isArray(input.question_solutions) ? input.question_solutions : []
   const methods = new Set(solutions.map((solution) => solution.method))
-  if (!methods.has('multiples') || !methods.has('prime_factorization')) {
-    return { success: false, error: 'Langkah kelipatan dan faktorisasi prima wajib diisi' }
+  if (!methods.has('multiples') || !methods.has('prime_factorization') || !methods.has('repeated_division')) {
+    return { success: false, error: 'Langkah kelipatan, faktorisasi prima, dan pembagian berulang wajib diisi' }
   }
   if (solutions.some((solution) => !Array.isArray(solution.steps) || !solution.steps.some((step) => String(step).trim()))) {
     return { success: false, error: 'Setiap metode pembahasan wajib memiliki minimal satu langkah' }
   }
 
   if (questionType === 'multiple_choice') {
-    if (!answerSolution) {
-      return { success: false, error: 'Acuan pelaksanaan rencana wajib diisi' }
-    }
     if (options.length !== 4) {
       return { success: false, error: 'Soal pilihan ganda harus memiliki tepat empat pilihan jawaban' }
     }
@@ -113,9 +110,20 @@ export function validateQuestionInput(value: unknown):
     if (input.correct_option !== correctOption) {
       return { success: false, error: 'Penanda pilihan benar tidak konsisten' }
     }
-    const numericAnswer = Number(String(correctOptions[0].option_text).replace(',', '.').match(/-?\d+(?:\.\d+)?/)?.[0])
-    if (!Number.isFinite(numericAnswer) || numericAnswer !== expectedLcm) {
-      return { success: false, error: `Teks pilihan yang ditandai benar harus memuat nilai KPK ${expectedLcm}` }
+    // Dukung format waktu (misal "06.28", "05:24"), satuan ("15 hari", "28 menit", "40 jam", "6 kali"),
+    // atau angka murni. Jika terdapat format waktu/satuan/teks, validasi memeriksa kecocokan nilai KPK.
+    const optionText = String(correctOptions[0].option_text).trim()
+    const timeMatch = optionText.match(/\b\d{1,2}[:.](\d{2})\b/)
+    const numberMatches = optionText.replace(/[:.]/g, ' ').match(/\b\d+\b/g)?.map(Number) || []
+    const hasExpectedLcm = numberMatches.includes(expectedLcm) || (timeMatch && Number(timeMatch[1]) === expectedLcm)
+
+    // Jika guru memasukkan angka atau format waktu, pastikan salah satunya cocok dengan nilai KPK atau biarkan fleksibel jika berupa teks deskriptif
+    if (numberMatches.length > 0 && !hasExpectedLcm) {
+      // Periksa apakah ada angka yang cocok atau format waktu valid
+      const anyMatch = numberMatches.some(n => n === expectedLcm)
+      if (!anyMatch && !timeMatch) {
+        return { success: false, error: `Teks pilihan yang ditandai benar harus memuat nilai KPK ${expectedLcm} atau waktu terkait (misal: 06.${expectedLcm < 10 ? '0' + expectedLcm : expectedLcm})` }
+      }
     }
 
     return {

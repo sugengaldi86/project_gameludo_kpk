@@ -118,17 +118,24 @@ export async function POST(request: Request, { params }: Context) {
     if (!answer) return NextResponse.json({ alreadyAnswered: true })
 
     const answerPayload = typeof answer === 'object' && answer ? answer as Record<string, unknown> : {}
-    const { data: question } = await supabase
-      .from('questions')
-      .select('known_information,asked_information,strategy,answer_solution,answer_solution_image_url,final_explanation')
-      .eq('id', body.questionId)
-      .maybeSingle()
+    const [{ data: question }, { data: solutions }] = await Promise.all([
+      supabase
+        .from('questions')
+        .select('known_information,asked_information,strategy,answer_solution,answer_solution_image_url,final_explanation')
+        .eq('id', body.questionId)
+        .maybeSingle(),
+      supabase
+        .from('question_solutions')
+        .select('method,steps,result')
+        .eq('question_id', body.questionId),
+    ])
     answerPayload.explanation = {
       knownInformation: question?.known_information || null,
       askedInformation: question?.asked_information || null,
       strategy: question?.strategy || null,
       solution: question?.answer_solution || null,
       solutionImageUrl: question?.answer_solution_image_url || null,
+      solutions: solutions || [],
       finalExplanation: question?.final_explanation || null,
     }
 

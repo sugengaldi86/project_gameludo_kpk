@@ -4,6 +4,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Dices, X, CheckCircle2, XCircle, ChevronRight, LogOut } from 'lucide-react'
 import { Question } from '@/lib/game-data'
+import { type SolutionItem } from '@/components/essay-question-modal'
+
+const MCQ_METHOD_LABELS: Record<string, string> = {
+  multiples: 'Mendaftar kelipatan',
+  prime_factorization: 'Faktorisasi prima',
+  repeated_division: 'Pembagian berulang / sengkedan',
+}
+const MCQ_METHOD_ORDER = ['multiples', 'prime_factorization', 'repeated_division']
 
 type QuestionModalProps = {
   open: boolean
@@ -12,7 +20,7 @@ type QuestionModalProps = {
   feedback: string
   correctOption?: string | null
   isCorrect?: boolean | null
-  explanation?: { knownInformation?: string; askedInformation?: string; strategy?: string; solution?: string; solutionImageUrl?: string; finalExplanation?: string } | null
+  explanation?: { knownInformation?: string; askedInformation?: string; strategy?: string; solution?: string; solutionImageUrl?: string; solutions?: SolutionItem[] | null; finalExplanation?: string } | null
   question: Question | null
   questionTimeSeconds?: number | null
   onClose: () => void
@@ -71,6 +79,33 @@ export function QuestionModal({
   const correct = typeof isCorrect === 'boolean' ? isCorrect : selectedAnswer === correctOption
   const timerPercent = questionTimeSeconds && timeLeft !== null ? (timeLeft / questionTimeSeconds) * 100 : 0
   const isUrgent = timeLeft !== null && timeLeft <= 10
+
+  function renderStage3() {
+    if (!explanation) return null
+    const hasSolutions = Array.isArray(explanation.solutions) && explanation.solutions.some(s => (s.steps?.length ?? 0) > 0)
+    const hasLegacy = !hasSolutions && Boolean(explanation.solution)
+    if (!hasSolutions && !hasLegacy && !explanation.solutionImageUrl) return null
+    return (
+      <section className="answer-explanation-stage">
+        {hasSolutions && (
+          <div className="essay-method-cards">
+            {MCQ_METHOD_ORDER.map(method => {
+              const item = explanation.solutions!.find(s => s.method === method)
+              if (!item || !item.steps?.length) return null
+              return (
+                <div key={method} className="essay-method-card">
+                  <strong className="essay-method-card-title">{MCQ_METHOD_LABELS[method]}</strong>
+                  {item.steps.map((step, i) => <p key={i}>{step}</p>)}
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {hasLegacy && <p>{explanation.solution}</p>}
+        {explanation.solutionImageUrl && <img className="answer-explanation-image" src={explanation.solutionImageUrl} alt="Ilustrasi pembahasan" />}
+      </section>
+    )
+  }
 
   return (
     <div className="question-overlay" role="dialog" aria-modal="true" aria-labelledby="question-modal-title">
@@ -143,7 +178,7 @@ export function QuestionModal({
                 {explanation.knownInformation && <p><b>Diketahui:</b> {explanation.knownInformation}</p>}
                 {explanation.askedInformation && <p><b>Ditanyakan:</b> {explanation.askedInformation}</p>}
                 {explanation.strategy && <p><b>Strategi:</b> {explanation.strategy}</p>}
-                {(explanation.solution || explanation.solutionImageUrl) && <section className="answer-explanation-stage">{explanation.solution && <p>{explanation.solution}</p>}{explanation.solutionImageUrl && <img className="answer-explanation-image" src={explanation.solutionImageUrl} alt="Ilustrasi pembahasan" />}</section>}
+                {renderStage3()}
                 {explanation.finalExplanation && <p style={{ marginTop: '0.5rem' }}><b>✅ Jawaban akhir:</b> {explanation.finalExplanation}</p>}
               </div>
             )}
